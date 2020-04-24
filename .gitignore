@@ -1,0 +1,7 @@
+obj/
+bin/
+
+# For vim users:
+*.swp
+*~
+*.bak
