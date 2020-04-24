@@ -178,6 +178,13 @@ kernelmap = $(call mapfile, kernel)
 kernelmapracket = $(call mapracket, kernel)
 kernelglobal = $(call globalfile, kernel)
 
+VERIFY_TEST := \
+	verif/test.rkt \
+
+RACO_JOBS               = 1
+RACO_TIMEOUT            = 1200
+RACO_TEST               = raco test --check-stderr --table --timeout $(RACO_TIMEOUT) --jobs $(RACO_JOBS)
+
 $(kernelasm): $(kernel)
 	@$(OBJDUMP) -M no-aliases --prefix-address -w -f -d -z --show-raw-insn $< > $@
 
@@ -202,9 +209,10 @@ $(kernelglobal): $(kernel)
 
 .PHONY: verify
 
-# => TO BE CONTINUED
-verify: $(kernelasmracket) $(kernelmapracket) $(kernelglobal)
-	@true
+$(VERIFY_TEST): $(kernelasmracket) $(kernelmapracket) $(kernelglobal)
+
+verify: $(VERIFY_TEST)
+	$(RACO_TEST) $^
 
 # files for grade script
 
