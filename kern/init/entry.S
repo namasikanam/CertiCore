@@ -4,15 +4,9 @@
     .section .text,"ax",%progbits
     .globl kern_entry
 kern_entry:
-    la sp, bootstacktop
+    la sp, bootstack + KSTACKSIZE
 
     tail kern_init
 
-.section .data
-    # .align 2^12
-    .align PGSHIFT
-    .global bootstack
-bootstack:
-    .space KSTACKSIZE
-    .global bootstacktop
-bootstacktop:
+// changed the section to bss because of Serval's restriction
+// -- hzl

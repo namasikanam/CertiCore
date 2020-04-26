@@ -25,12 +25,16 @@
 ; Representation invariant that is assumed to hold
 ; before each system call, and is proven to hold after
 (define (rep-invariant cpu)
-  (equal? (csr-ref cpu 'stvec) (find-symbol-start '__alltraps)))
+  (and (equal? (csr-ref cpu 'stvec) (find-symbol-start '__alltraps))
+       (equal? (gpr-ref cpu 'sp) (bvadd (find-symbol-start 'bootstack)
+                                        (bv #x2000 64)))))
 
 ; Initialize the machine state with concrete values
 ; consistent with the representation invariant.
 (define (init-rep-invariant cpu)
-  (csr-set! cpu 'stvec (find-symbol-start '__alltraps)))
+  (csr-set! cpu 'stvec (find-symbol-start '__alltraps))
+  (gpr-set! cpu 'sp (bvadd (find-symbol-start 'bootstack)
+                           (bv #x2000 64))))
 
 ; Check that init-rep-invariant is consistent with
 ; the representation invariant
@@ -59,7 +63,7 @@
 ; and a0 through a6 to the monitor call arguments.
 (define (cpu-interrupt cpu expcode)
   (set-cpu-pc! cpu (csr-ref cpu 'stvec))
-  ; timer interrupt
+  ; interrupt
   (csr-set! cpu 'scause (bv expcode 64))
   (interpret-objdump-program cpu implementation:instructions))
 
@@ -94,27 +98,25 @@
     handle-ce))
 
 
-;(define (verify-boot-invariants)
-  ;(define cpu (init-cpu implementation:symbols implementation:globals))
-  ;; Set program counter to architecturally-defined reset vector
-  ;(set-cpu-pc! cpu (bv #x0000000080000000 64))
-  ;; Set a0 to be hartid (boot cpu number)
-  ;(gpr-set! cpu 'a0 (bv constants:CONFIG_BOOT_CPU 64))
+(define (verify-boot-invariants)
+  (define cpu (init-cpu implementation:symbols implementation:globals))
+  ; Set program counter to architecturally-defined reset vector
+  (set-cpu-pc! cpu (bv #x0000000080200000 64))
 
-  ;; Interpret until first mret to user space
-  ;(check-asserts (interpret-objdump-program cpu implementation:instructions))
+  ; Interpret until first sret to user space
+  (check-asserts (interpret-objdump-program cpu implementation:instructions))
 
-  ;; Prove that the representation invariant holds
-  ;(check-unsat? (verify (assert (rep-invariant cpu)))))
+  ; Prove that the representation invariant holds
+  (check-unsat? (verify (assert (rep-invariant cpu)))))
 
 
 (define (refinement-tests)
   (test-case+ "verify init-rep-invariant" (verify-rep-invariant))
 
-  (define s-timer-no #x8000000000000005)
 
   ;(test-case+ "verify boot invariants" (verify-boot-invariants))
 
+  (define s-timer-no #x8000000000000005)
   (test-case+ "timer refinement"
     (verify-riscv-refinement
       specification:intrp-timer
