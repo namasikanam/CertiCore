@@ -106,7 +106,7 @@ void interrupt_handler(struct trapframe *tf) {
             // cprintf("Supervisor timer interrupt\n");
             clock_set_next_event();
             if (++ticks % TICK_NUM == 0) {
-                print_ticks();
+                /*print_ticks();*/
             }
             break;
         case IRQ_H_TIMER:
