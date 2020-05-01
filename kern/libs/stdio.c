@@ -35,12 +35,16 @@ int vcprintf(const char *fmt, va_list ap) {
  * written to stdout.
  * */
 int cprintf(const char *fmt, ...) {
+#ifdef ENABLE_PRINT
     va_list ap;
     int cnt;
     va_start(ap, fmt);
     cnt = vcprintf(fmt, ap);
     va_end(ap);
     return cnt;
+#else
+    return 0;
+#endif
 }
 
 /* cputchar - writes a single character to stdout */

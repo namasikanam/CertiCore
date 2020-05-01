@@ -5,9 +5,11 @@ SLASH	:= /
 
 V       := @
 
-#ifndef GCCPREFIX
+-include local.mk
+
+ifndef GCCPREFIX
 GCCPREFIX := riscv64-linux-gnu-
-#endif
+endif
 
 ifndef QEMU
 QEMU := qemu-system-riscv64
@@ -31,6 +33,10 @@ GDB		:= $(GCCPREFIX)gdb
 
 CC		:= $(GCCPREFIX)gcc
 
+ifdef ENABLE_PRINT
+CONFIG_FLAGS += -DENABLE_PRINT=$(ENABLE_PRINT)
+endif
+
 CFLAGS     := -ffreestanding
 CFLAGS     += -fno-stack-protector
 CFLAGS     += -fno-strict-aliasing
@@ -46,6 +52,7 @@ CFLAGS     += -fno-PIE
 CFLAGS     += -march=rv64ima
 CFLAGS     += -std=gnu99
 CFLAGS     += -g
+CFLAGS	   += $(CONFIG_FLAGS)
 
 CTYPE	:= c S
 
