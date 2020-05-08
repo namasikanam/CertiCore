@@ -9,7 +9,7 @@ V       := @
 
 ifndef GCCPREFIX
 ifeq ($(shell cat /proc/version | grep 'Ubuntu'), )
-GCCPREFIX := riscv64-suse-linux-gnu-
+GCCPREFIX := riscv64-suse-linux-
 else
 GCCPREFIX := riscv64-linux-gnu-
 endif

@@ -32,3 +32,15 @@ kern_entry:
     lui t0, %hi(kern_init)
     addi t0, t0, %lo(kern_init)
     jr t0
+
+.section .data
+    # 由于我们要把这个页表放到一个页里面，因此必须 12 位对齐
+    .align PGSHIFT
+    .global boot_page_table_sv39
+# 分配 4KiB 内存给预设的三级页表
+boot_page_table_sv39:
+    # 0xffffffff_c0000000 map to 0x80000000 (1G)
+    # 前 511 个页表项均设置为 0 ，因此 V=0 ，意味着是空的(unmapped)
+    .zero 8 * 511
+    # 设置最后一个页表项，PPN=0x80000，标志位 VRWXAD 均为 1
+    .quad (0x80000 << 10) | 0xcf # VRWXAD
