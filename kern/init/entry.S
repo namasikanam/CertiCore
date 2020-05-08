@@ -4,9 +4,31 @@
     .section .text,"ax",%progbits
     .globl kern_entry
 kern_entry:
-    la sp, bootstack + KSTACKSIZE
+    # t0 := 三级页表的虚拟地址
+    lui     t0, %hi(boot_page_table_sv39)
+    # t1 := 0xffffffff40000000 即虚实映射偏移量
+    li      t1, 0xffffffffc0000000 - 0x80000000
+    # t0 减去虚实映射偏移量 0xffffffff40000000，变为三级页表的物理地址
+    sub     t0, t0, t1
+    # t0 >>= 12，变为三级页表的物理页号
+    srli    t0, t0, 12
 
-    tail kern_init
+    # t1 := 8 << 60，设置 satp 的 MODE 字段为 Sv39
+    li      t1, 8 << 60
+    # 将刚才计算出的预设三级页表物理页号附加到 satp 中
+    or      t0, t0, t1
+    # 将算出的 t0(即新的MODE|页表基址物理页号) 覆盖到 satp 中
+    csrw    satp, t0
+    # 使用 sfence.vma 指令刷新 TLB
+    sfence.vma
+    # 从此，我们给内核搭建出了一个完美的虚拟内存空间！
+    #nop # 可能映射的位置有些bug。。插入一个nop
+    
+    # 我们在虚拟内存空间中：随意将 sp 设置为虚拟地址！
+    lui sp, %hi(bootstack + KSTACKSIZE)
 
-// changed the section to bss because of Serval's restriction
-// -- hzl
+    # 我们在虚拟内存空间中：随意跳转到虚拟地址！
+    # 跳转到 kern_init
+    lui t0, %hi(kern_init)
+    addi t0, t0, %lo(kern_init)
+    jr t0

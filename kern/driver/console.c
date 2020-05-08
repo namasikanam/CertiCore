@@ -1,5 +1,5 @@
-#include <sbi.h>
 #include <console.h>
+#include <sbi.h>
 
 /* kbd_intr - try to feed input characters from keyboard */
 void kbd_intr(void) {}

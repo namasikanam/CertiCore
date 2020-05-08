@@ -2,6 +2,7 @@
 
 int
 main(void) {
+    printf("# handler\n");
     printf(".text\n");
     printf(".globl __alltraps\n");
 
@@ -10,7 +11,7 @@ main(void) {
         printf(".globl vector%d\n", i);
         printf("vector%d:\n", i);
         if ((i < 8 || i > 14) && i != 17) {
-            printf("  pushl \\$0\n");
+            printf("  pushl $0\n");
         }
         printf("  pushl $%d\n", i);
         printf("  jmp __alltraps\n");

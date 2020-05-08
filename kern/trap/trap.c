@@ -19,13 +19,33 @@ static void print_ticks() {
 #endif
 }
 
-/**
- * @brief      Load supervisor trap entry in RISC-V
+/* idt_init - initialize IDT to each of the entry points in kern/trap/vectors.S
  */
 void idt_init(void) {
+    /* LAB1 YOUR CODE : STEP 2 */
+    /* (1) Where are the entry addrs of each Interrupt Service Routine (ISR)?
+     *     All ISR's entry addrs are stored in __vectors. where is uintptr_t
+     * __vectors[] ?
+     *     __vectors[] is in kern/trap/vector.S which is produced by
+     * tools/vector.c
+     *     (try "make" command in lab1, then you will find vector.S in kern/trap
+     * DIR)
+     *     You can use  "extern uintptr_t __vectors[];" to define this extern
+     * variable which will be used later.
+     * (2) Now you should setup the entries of ISR in Interrupt Description
+     * Table (IDT).
+     *     Can you see idt[256] in this file? Yes, it's IDT! you can use SETGATE
+     * macro to setup each item of IDT
+     * (3) After setup the contents of IDT, you will let CPU know where is the
+     * IDT by using 'lidt' instruction.
+     *     You don't know the meaning of this instruction? just google it! and
+     * check the libs/x86.h to know more.
+     *     Notice: the argument of lidt is idt_pd. try to find it!
+     */
+
     extern void __alltraps(void);
-    /* Set sscratch register to 0, indicating to exception vector that we are
-     * presently executing in the kernel */
+    /* Set sup0 scratch register to 0, indicating to exception vector
+       that we are presently executing in the kernel */
     write_csr(sscratch, 0);
     /* Set the exception vector address */
     write_csr(stvec, &__alltraps);
@@ -96,7 +116,7 @@ void interrupt_handler(struct trapframe *tf) {
             cprintf("Machine software interrupt\n");
             break;
         case IRQ_U_TIMER:
-            cprintf("User software interrupt\n");
+            cprintf("User Timer interrupt\n");
             break;
         case IRQ_S_TIMER:
             // "All bits besides SSIP and USIP in the sip register are
@@ -104,9 +124,10 @@ void interrupt_handler(struct trapframe *tf) {
             // In fact, Call sbi_set_timer will clear STIP, or you can clear it
             // directly.
             // cprintf("Supervisor timer interrupt\n");
+            // clear_csr(sip, SIP_STIP);
             clock_set_next_event();
             if (++ticks % TICK_NUM == 0) {
-                /*print_ticks();*/
+                print_ticks();
             }
             break;
         case IRQ_H_TIMER:
@@ -165,7 +186,6 @@ void exception_handler(struct trapframe *tf) {
     }
 }
 
-/* trap_dispatch - dispatch based on what type of trap occurred */
 static inline void trap_dispatch(struct trapframe *tf) {
     if ((intptr_t)tf->cause < 0) {
         // interrupts
@@ -182,4 +202,7 @@ static inline void trap_dispatch(struct trapframe *tf) {
  * the code in kern/trap/trapentry.S restores the old CPU state saved in the
  * trapframe and then uses the iret instruction to return from the exception.
  * */
-void trap(struct trapframe *tf) { trap_dispatch(tf); }
+void trap(struct trapframe *tf) {
+    // dispatch based on what type of trap occurred
+    trap_dispatch(tf);
+}

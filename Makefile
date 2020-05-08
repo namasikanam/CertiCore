@@ -1,4 +1,4 @@
-PROJ	:= lab1
+PROJ	:= lab2
 EMPTY	:=
 SPACE	:= $(EMPTY) $(EMPTY)
 SLASH	:= /
@@ -8,7 +8,11 @@ V       := @
 -include local.mk
 
 ifndef GCCPREFIX
+ifeq ($(shell cat /proc/version | grep 'Ubuntu'), )
+GCCPREFIX := riscv64-suse-linux-gnu-
+else
 GCCPREFIX := riscv64-linux-gnu-
+endif
 endif
 
 ifndef QEMU

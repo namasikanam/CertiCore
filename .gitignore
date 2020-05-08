@@ -12,6 +12,10 @@ compiled
 *.pyc
 .DS_Store
 .gdbinit
+.check_pmm.log
+.gdb.in
+.qemu.out
+.check_output.log
 
 # For vim users:
 *.swp
