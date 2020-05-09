@@ -36,7 +36,8 @@ BASE_CFLAGS     += -fno-jump-tables
 # no unaligned memory accesses
 BASE_CFLAGS     += -mstrict-align
 BASE_CFLAGS     += -g -O$(OLEVEL)
-BASE_CFLAGS     += -Wall -Wno-unused -Werror
+BASE_CFLAGS     += -Wall -Wno-unused
+BASE_CFLAGS     += -Werror
 
 CONFIG_CFLAGS   += -DCONFIG_NR_CPUS=$(CONFIG_NR_CPUS)
 CONFIG_CFLAGS   += -DCONFIG_BOOT_CPU=$(CONFIG_BOOT_CPU)

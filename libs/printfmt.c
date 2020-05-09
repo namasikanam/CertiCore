@@ -13,7 +13,6 @@
  * The integer may be positive or negative,
  * so that -E_NO_MEM and E_NO_MEM are equivalent.
  * */
-
 static const char * const error_string[MAXERROR + 1] = {
     [0]                     = NULL,
     [E_UNSPECIFIED]         = "unspecified error",
@@ -53,39 +52,25 @@ printnum(void (*putch)(int, void*), void *putdat,
 
 /* *
  * getuint - get an unsigned int of various possible sizes from a varargs list
+ * @num:        where the answer stores
  * @ap:         a varargs list pointer
  * @lflag:      determines the size of the vararg that @ap points to
  * */
-static unsigned long long
-getuint(va_list ap, int lflag) {
-    if (lflag >= 2) {
-        return va_arg(ap, unsigned long long);
-    }
-    else if (lflag) {
-        return va_arg(ap, unsigned long);
-    }
-    else {
-        return va_arg(ap, unsigned int);
-    }
-}
+#define getuint(num, ap, lflag)                           \
+    if (lflag >= 2) num = va_arg(ap, unsigned long long); \
+    else if (lflag) num = va_arg(ap, unsigned long);      \
+    else num = va_arg(ap, unsigned int);
 
 /* *
  * getint - same as getuint but signed, we can't use getuint because of sign extension
+ * @num:        where the answer stores
  * @ap:         a varargs list pointer
  * @lflag:      determines the size of the vararg that @ap points to
  * */
-static long long
-getint(va_list ap, int lflag) {
-    if (lflag >= 2) {
-        return va_arg(ap, long long);
-    }
-    else if (lflag) {
-        return va_arg(ap, long);
-    }
-    else {
-        return va_arg(ap, int);
-    }
-}
+#define getint(num, ap, lflag)                          \
+    if (lflag >= 2) num = va_arg(ap, long long);        \
+    else if (lflag) num = va_arg(ap, long);             \
+    else num = va_arg(ap, int);
 
 /* *
  * printfmt - format a string and print it by using putch
@@ -224,7 +209,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap) 
 
         // (signed) decimal
         case 'd':
-            num = getint(ap, lflag);
+            getint(num, ap, lflag);
             if ((long long)num < 0) {
                 putch('-', putdat);
                 num = -(long long)num;
@@ -234,13 +219,13 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap) 
 
         // unsigned decimal
         case 'u':
-            num = getuint(ap, lflag);
+            getuint(num, ap, lflag)
             base = 10;
             goto number;
 
         // (unsigned) octal
         case 'o':
-            num = getuint(ap, lflag);
+            getuint(num, ap, lflag);
             base = 8;
             goto number;
 
@@ -254,7 +239,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap) 
 
         // (unsigned) hexadecimal
         case 'x':
-            num = getuint(ap, lflag);
+            getuint(num, ap, lflag);
             base = 16;
         number:
             printnum(putch, putdat, num, base, width, padc);
