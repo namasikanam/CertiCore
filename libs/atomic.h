@@ -17,15 +17,8 @@ static inline bool test_and_set_bit(int nr, volatile void *addr)
 static inline bool test_and_clear_bit(int nr, volatile void *addr)
     __attribute__((always_inline));
 
-#define BITS_PER_LONG __riscv_xlen
-
-#if (BITS_PER_LONG == 64)
+#define BITS_PER_LONG 64
 #define __AMO(op) "amo" #op ".d"
-#elif (BITS_PER_LONG == 32)
-#define __AMO(op) "amo" #op ".w"
-#else
-#error "Unexpected BITS_PER_LONG"
-#endif
 
 #define BIT_MASK(nr) (1UL << ((nr) % BITS_PER_LONG))
 #define BIT_WORD(nr) ((nr) / BITS_PER_LONG)

@@ -15,11 +15,14 @@ SLASH	:= /
 # delete target files if there is an error (or make is interrupted)
 .DELETE_ON_ERROR:
 
-ifneq ($(MAKECMDGOALS),verify)
-CONFIG_CFLAGS += -DENABLE_PRINT
+ifeq ($(MAKECMDGOALS),verify)
+IS_VERIF = TRUE
 endif
+
 ifdef IS_VERIF
 CONFIG_CFLAGS += -DIS_VERIF=$(IS_VERIF)
+else
+CONFIG_CFLAGS += -DENABLE_PRINT
 endif
 
 # no built-in rules and variables
@@ -34,7 +37,6 @@ BASE_CFLAGS     += -fno-jump-tables
 BASE_CFLAGS     += -mstrict-align
 BASE_CFLAGS     += -g -O$(OLEVEL)
 BASE_CFLAGS     += -Wall -Wno-unused -Werror
-BASE_CFLAGS     += -MD -MP
 
 CONFIG_CFLAGS   += -DCONFIG_NR_CPUS=$(CONFIG_NR_CPUS)
 CONFIG_CFLAGS   += -DCONFIG_BOOT_CPU=$(CONFIG_BOOT_CPU)
@@ -126,7 +128,6 @@ KSRCDIR		+= kern/init \
 
 KCFLAGS		+= $(addprefix -I,$(KINCLUDE))
 LLVM_IFLAGS += $(addprefix -I,$(KINCLUDE))
-$(info "LLVM_IFLAGS = $(LLVM_IFLAGS)")
 
 $(call add_files_cc,$(call listf_cc,$(KSRCDIR)),kernel,$(KCFLAGS))
 
@@ -203,13 +204,11 @@ $(kernelglobal): $(kernel)
 
 # ---- LLVM
 KCS = $(subst .c,.ll, $(call listf_ll, $(LIBDIR)) $(call listf_ll, $(KSRCDIR)))
-$(info "KCS = $(KCS)")
 KLLS = $(foreach file, $(KCS), $(O)/$(file))
-$(info "KLLS = $(KLLS)")
 
 # For simplicity, we can just include all generated llvm irs here
 $(O)/kernel.ll: $(KLLS)
-	$echo "+ llvm link & opt $<"
+	@echo "+ llvm link & opt $<"
 	$(QUIET_GEN)$(LLVM_LINK) $^ | $(LLVM_OPT) -o $@~ $(LLVM_OPTFLAGS) -S
 	$(Q)mv $@~ $@
 

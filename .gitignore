@@ -16,6 +16,7 @@ compiled
 .gdb.in
 .qemu.out
 .check_output.log
+serval/
 
 # For vim users:
 *.swp
