@@ -190,7 +190,7 @@ kernelmapracket = $(call mapracket, kernel)
 kernelglobal = $(call globalfile, kernel)
 
 VERIFY_TEST := \
-	verif/test.rkt \
+	verif/refinement.rkt \
 
 RACO_JOBS               = 1
 RACO_TIMEOUT            = 1200
