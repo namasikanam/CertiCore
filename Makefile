@@ -37,8 +37,8 @@ GDB		:= $(GCCPREFIX)gdb
 
 CC		:= $(GCCPREFIX)gcc
 
-ifdef ENABLE_PRINT
-CONFIG_FLAGS += -DENABLE_PRINT=$(ENABLE_PRINT)
+ifdef IS_VERIF
+CONFIG_FLAGS += -DIS_VERIF=$(IS_VERIF)
 endif
 
 CFLAGS     := -ffreestanding

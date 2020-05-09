@@ -109,6 +109,5 @@ static inline struct Page *pa2page(uintptr_t pa) {
     return &pages[PPN(pa) - nbase];
 }
 static inline void flush_tlb() { asm volatile("sfence.vm"); }
-extern char bootstack[], bootstacktop[]; // defined in entry.S
 
 #endif /* !__KERN_MM_PMM_H__ */
