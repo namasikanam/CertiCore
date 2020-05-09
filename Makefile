@@ -1,27 +1,11 @@
+include config.mk
+include tools/lib.mk
+include tools/function.mk
+
 PROJ	:= lab2
 EMPTY	:=
 SPACE	:= $(EMPTY) $(EMPTY)
 SLASH	:= /
-
-V       := @
-
--include local.mk
-
-ifndef GCCPREFIX
-ifeq ($(shell cat /proc/version | grep 'Ubuntu'), )
-GCCPREFIX := riscv64-suse-linux-
-else
-GCCPREFIX := riscv64-linux-gnu-
-endif
-endif
-
-ifndef QEMU
-QEMU := qemu-system-riscv64
-endif
-
-ifndef SPIKE
-SPIKE := spike
-endif
 
 # eliminate default suffix rules
 .SUFFIXES: .c .S .h
@@ -29,45 +13,48 @@ endif
 # delete target files if there is an error (or make is interrupted)
 .DELETE_ON_ERROR:
 
-# define compiler and flags
-HOSTCC		:= gcc
-HOSTCFLAGS	:= -Wall -O2
-
-GDB		:= $(GCCPREFIX)gdb
-
-CC		:= $(GCCPREFIX)gcc
-
-ifdef ENABLE_PRINT
-CONFIG_FLAGS += -DENABLE_PRINT=$(ENABLE_PRINT)
+ifneq ($(MAKECMDGOALS),verify)
+CONFIG_CFLAGS += -DENABLE_PRINT
 endif
 
-CFLAGS     := -ffreestanding
-CFLAGS     += -fno-stack-protector
-CFLAGS     += -fno-strict-aliasing
-CFLAGS     += -fno-jump-tables
-CFLAGS     += -mstrict-align
-CFLAGS     += -O2 -nostdinc $(DEFS)
-CFLAGS     += -Wno-unused -Wall -Werror 
-#CFLAGS   += -MP -MD 
+# no built-in rules and variables
+MAKEFLAGS       += --no-builtin-rules --no-builtin-variables
+
+BASE_CFLAGS     := -ffreestanding
+BASE_CFLAGS     += -fno-stack-protector
+BASE_CFLAGS     += -fno-strict-aliasing
+# make it simpler for symbolic execution to track PC
+BASE_CFLAGS     += -fno-jump-tables
+# no unaligned memory accesses
+BASE_CFLAGS     += -mstrict-align
+BASE_CFLAGS     += -g -O$(OLEVEL)
+BASE_CFLAGS     += -Wall -Wno-unused -Werror
+BASE_CFLAGS     += -MD -MP
+
+CONFIG_CFLAGS   += -DCONFIG_NR_CPUS=$(CONFIG_NR_CPUS)
+CONFIG_CFLAGS   += -DCONFIG_BOOT_CPU=$(CONFIG_BOOT_CPU)
+CONFIG_CFLAGS   += -DCONFIG_DRAM_START=$(CONFIG_DRAM_START)
+CONFIG_CFLAGS   += -DCONFIG_VERIFICATION=$(CONFIG_VERIFICATION)
+
+CFLAGS     := $(BASE_CFLAGS) $(CONFIG_CFLAGS)
 CFLAGS     += -mcmodel=medany
 CFLAGS     += -mabi=lp64
 CFLAGS     += -ffunction-sections -fdata-sections
 CFLAGS     += -fno-PIE
 CFLAGS     += -march=rv64ima
-CFLAGS     += -std=gnu99
-CFLAGS     += -g
-CFLAGS	   += $(CONFIG_FLAGS)
+CFLAGS     += -std=gnu11
+CFLAGS     += -nostdinc
+CFLAGS     += $(DEFS)
 
 CTYPE	:= c S
+LTYPE   := c
 
-LD      := $(GCCPREFIX)ld
 LDFLAGS	:= -m elf64lriscv
 LDFLAGS	+= -nostdlib --gc-sections
 
-OBJCOPY := $(GCCPREFIX)objcopy
-OBJDUMP := $(GCCPREFIX)objdump
-
-NM := $(GCCPREFIX)nm
+UBSAN_CFLAGS := -fsanitize=integer-divide-by-zero
+UBSAN_CFLAGS += -fsanitize=shift
+UBSAN_CFLAGS += -fsanitize=signed-integer-overflow
 
 COPY	:= cp
 MKDIR   := mkdir -p
@@ -86,20 +73,15 @@ ALLOBJS	:=
 ALLDEPS	:=
 TARGETS	:=
 
-include tools/function.mk
+include racket/racket.mk
 
 listf_cc = $(call listf,$(1),$(CTYPE))
+listf_ll = $(call listf, $(1), $(LTYPE))
 
 # for cc
 add_files_cc = $(call add_files,$(1),$(CC),$(CFLAGS) $(3),$(2),$(4))
-create_target_cc = $(call create_target,$(1),$(2),$(3),$(CC),$(CFLAGS))
-
-# for hostcc
-add_files_host = $(call add_files,$(1),$(HOSTCC),$(HOSTCFLAGS),$(2),$(3))
-create_target_host = $(call create_target,$(1),$(2),$(3),$(HOSTCC),$(HOSTCFLAGS))
 
 cgtype = $(patsubst %.$(2),%.$(3),$(1))
-objfile = $(call toobj,$(1))
 asmfile = $(call cgtype,$(call toobj,$(1)),o,asm)
 mapfile = $(call cgtype,$(call toobj,$(1)),o,map)
 mapracket = $(call cgtype,$(call toobj,$(1)),o,map.rkt)
@@ -115,6 +97,7 @@ match = $(shell echo $(2) | $(AWK) '{for(i=1;i<=NF;i++){if(match("$(1)","^"$$(i)
 INCLUDE	+= libs/
 
 CFLAGS	+= $(addprefix -I,$(INCLUDE))
+LLVM_IFLAGS += $(addprefix -I,$(INCLUDE))
 
 LIBDIR	+= libs
 
@@ -137,13 +120,15 @@ KSRCDIR		+= kern/init \
 			   kern/mm
 
 KCFLAGS		+= $(addprefix -I,$(KINCLUDE))
+LLVM_IFLAGS += $(addprefix -I,$(KINCLUDE))
+$(info "LLVM_IFLAGS = $(LLVM_IFLAGS)")
 
 $(call add_files_cc,$(call listf_cc,$(KSRCDIR)),kernel,$(KCFLAGS))
 
-KOBJS	= $(call read_packet,kernel libs)
-
 # create kernel target
 kernel = $(call totarget,kernel)
+
+KOBJS	= $(call read_packet,kernel libs)
 
 $(kernel): tools/kernel.ld
 
@@ -156,9 +141,6 @@ $(call create_target,kernel)
 # -------------------------------------------------------------------
 # create ucore.img
 UCOREIMG	:= $(call totarget,ucore.img)
-
-# $(UCOREIMG): $(kernel)
-#	cd ../../riscv-pk && rm -rf build && mkdir build && cd build && ../configure --prefix=$(RISCV) --host=riscv64-unknown-elf --with-payload=../../labcodes/$(PROJ)/$(kernel)  --disable-fp-emulation && make && cp bbl ../../labcodes/$(PROJ)/$(UCOREIMG)
 
 $(UCOREIMG): $(kernel)
 	$(OBJCOPY) $(kernel) --strip-all -O binary $@
@@ -192,10 +174,6 @@ kernelglobal = $(call globalfile, kernel)
 VERIFY_TEST := \
 	verif/test.rkt \
 
-RACO_JOBS               = 1
-RACO_TIMEOUT            = 1200
-RACO_TEST               = raco test --check-stderr --table --timeout $(RACO_TIMEOUT) --jobs $(RACO_JOBS)
-
 $(kernelasm): $(kernel)
 	@$(OBJDUMP) -M no-aliases --prefix-address -w -f -d -z --show-raw-insn $< > $@
 
@@ -218,9 +196,29 @@ $(kernelglobal): $(kernel)
 	$(V)$(OBJDUMP) --dwarf=info $< >> $@~
 	$(V)mv $@~ $@
 
+# ---- LLVM
+KCS = $(subst .c,.ll, $(call listf_ll, $(LIBDIR)) $(call listf_ll, $(KSRCDIR)))
+$(info "KCS = $(KCS)")
+KLLS = $(foreach file, $(KCS), $(O)/$(file))
+$(info "KLLS = $(KLLS)")
+
+# For simplicity, we can just include all generated llvm irs here
+$(O)/kernel.ll: $(KLLS)
+	$echo "+ llvm link & opt $<"
+	$(QUIET_GEN)$(LLVM_LINK) $^ | $(LLVM_OPT) -o $@~ $(LLVM_OPTFLAGS) -S
+	$(Q)mv $@~ $@
+
+# keep LLVM_ROSETTE around for now
+$(O)/kernel.ll.rkt: $(O)/kernel.ll $(LLVM_ROSETTE)
+	$(QUIET_GEN)$(SERVAL_LLVM) < $< > $@~
+	$(Q)mv $@~ $@
+
 .PHONY: verify
 
-$(VERIFY_TEST): $(kernelasmracket) $(kernelmapracket) $(kernelglobal)
+$(VERIFY_TEST): $(kernelasmracket) \
+	            $(kernelmapracket) \
+				$(kernelglobal)    \
+				$(O)/kernel.ll.rkt
 
 verify: $(VERIFY_TEST)
 	$(RACO_TEST) $^
