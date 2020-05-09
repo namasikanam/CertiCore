@@ -58,7 +58,11 @@ static inline bool test_and_clear_bit(int nr, volatile void *addr)
  * restricted to acting on a single-word quantity.
  * */
 static inline void set_bit(int nr, volatile void *addr) {
+#ifndef IS_VERIF
     __op_bit(or, __NOP, nr, ((volatile unsigned long *)addr));
+#else
+    ((volatile unsigned long *)addr)[BIT_WORD(nr)] |= BIT_MASK(nr);
+#endif
 }
 
 /* *
@@ -67,7 +71,11 @@ static inline void set_bit(int nr, volatile void *addr) {
  * @addr:   the address to start counting from
  * */
 static inline void clear_bit(int nr, volatile void *addr) {
+#ifndef IS_VERIF
     __op_bit(and, __NOT, nr, ((volatile unsigned long *)addr));
+#else
+    ((volatile unsigned long *)addr)[BIT_WORD(nr)] &= __NOT(BIT_MASK(nr));
+#endif
 }
 
 /* *
@@ -76,7 +84,11 @@ static inline void clear_bit(int nr, volatile void *addr) {
  * @addr:   the address to start counting from
  * */
 static inline void change_bit(int nr, volatile void *addr) {
+#ifndef IS_VERIF
     __op_bit (xor, __NOP, nr, ((volatile unsigned long *)addr));
+#else
+    ((volatile unsigned long *)addr)[BIT_WORD(nr)] ^= BIT_MASK(nr);
+#endif
 }
 
 /* *

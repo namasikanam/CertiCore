@@ -2,6 +2,8 @@ include config.mk
 include tools/lib.mk
 include tools/function.mk
 
+-include local.mk
+
 PROJ	:= lab2
 EMPTY	:=
 SPACE	:= $(EMPTY) $(EMPTY)
@@ -15,6 +17,9 @@ SLASH	:= /
 
 ifneq ($(MAKECMDGOALS),verify)
 CONFIG_CFLAGS += -DENABLE_PRINT
+endif
+ifdef IS_VERIF
+CONFIG_CFLAGS += -DIS_VERIF=$(IS_VERIF)
 endif
 
 # no built-in rules and variables
