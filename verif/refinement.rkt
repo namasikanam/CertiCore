@@ -109,18 +109,17 @@
   ; Prove that the representation invariant holds
   (check-unsat? (verify (assert (rep-invariant cpu)))))
 
+(define (check-symbols)
+  (check-equal? (find-overlapping-symbol implementation:symbols) #f "Symbol overlap check failed"))
 
-(define (refinement-tests)
-  (test-case+ "verify init-rep-invariant" (verify-rep-invariant))
-
-
-  ;(test-case+ "verify boot invariants" (verify-boot-invariants))
-
-  (define s-timer-no #x8000000000000005)
-  (test-case+ "timer refinement"
-    (verify-riscv-refinement
-      specification:intrp-timer
-      s-timer-no)))
+(define refinement-tests
+  (test-suite+ "RiscV tests" 
+    (test-case+ "certicore symbol test" (check-symbols))
+    (test-case+ "verify init-rep-invariant" (verify-rep-invariant))
+    ;(test-case+ "verify boot invariants" (verify-boot-invariants)) 
+    (define s-timer-no #x8000000000000005)
+    (test-case+ "timer refinement"
+        (verify-riscv-refinement specification:intrp-timer s-timer-no))))
 
 (module+ test
-  (refinement-tests))
+  (time (run-tests refinement-tests)))

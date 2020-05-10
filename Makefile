@@ -170,7 +170,7 @@ kernelmapracket = $(call mapracket, kernel)
 kernelglobal = $(call globalfile, kernel)
 
 VERIFY_TEST := \
-	verif/test.rkt \
+	verif/refinement.rkt \
 
 $(kernelasm): $(kernel)
 	@$(OBJDUMP) -M no-aliases --prefix-address -w -f -d -z --show-raw-insn $< > $@
