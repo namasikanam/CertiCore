@@ -28,7 +28,7 @@ CONFIG_VERIFICATION     = 1
 # configuration used by QEMU for simulation
 QEMU                    = qemu-system-$(ARCH)
 QEMU_MACHINE            = virt
-QEMU_OPTS               = -smp cpus=$(CONFIG_NR_CPUS) -nographic -machine $(QEMU_MACHINE)
+QEMU_OPTS               = -nographic -machine $(QEMU_MACHINE)
 QEMU_USER               = qemu-$(ARCH)
 QEMU_DEBUG              = -S -s
 

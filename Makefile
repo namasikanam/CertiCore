@@ -2,8 +2,6 @@ include config.mk
 include tools/lib.mk
 include tools/function.mk
 
--include local.mk
-
 PROJ	:= lab2
 EMPTY	:=
 SPACE	:= $(EMPTY) $(EMPTY)
@@ -21,8 +19,6 @@ endif
 
 ifdef IS_VERIF
 CONFIG_CFLAGS += -DIS_VERIF=$(IS_VERIF)
-else
-CONFIG_CFLAGS += -DENABLE_PRINT
 endif
 
 # no built-in rules and variables
@@ -38,11 +34,6 @@ BASE_CFLAGS     += -mstrict-align
 BASE_CFLAGS     += -g -O$(OLEVEL)
 BASE_CFLAGS     += -Wall -Wno-unused
 BASE_CFLAGS     += -Werror
-
-CONFIG_CFLAGS   += -DCONFIG_NR_CPUS=$(CONFIG_NR_CPUS)
-CONFIG_CFLAGS   += -DCONFIG_BOOT_CPU=$(CONFIG_BOOT_CPU)
-CONFIG_CFLAGS   += -DCONFIG_DRAM_START=$(CONFIG_DRAM_START)
-CONFIG_CFLAGS   += -DCONFIG_VERIFICATION=$(CONFIG_VERIFICATION)
 
 CFLAGS     := $(BASE_CFLAGS) $(CONFIG_CFLAGS)
 CFLAGS     += -mcmodel=medany
@@ -236,7 +227,6 @@ TARGETS: $(TARGETS)
 
 .PHONY: qemu spike
 qemu: $(UCOREIMG) $(SWAPIMG) $(SFSIMG)
-#	$(V)$(QEMU) -kernel $(UCOREIMG) -nographic
 	$(V)$(QEMU) \
 		-machine virt \
 		-nographic \

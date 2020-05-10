@@ -44,18 +44,18 @@ LLVM_OPT        := $(LLVM_PREFIX)opt
 
 LLVM_CXXFLAGS   = $(shell "$(LLVM_CONFIG)" --cxxflags)
 LLVM_LDFLAGS    = $(shell "$(LLVM_CONFIG)" --ldflags)
-LLVM_LIBS       = $(shell "$(LLVM_CONFIG)" --libs --system-libs --link-static)
+LLVM_LIBS       = $(shell "$(LLVM_CONFIG)" --libs --system-libs)
 
 # avoid generating memset etc.
 LLVM_OPTFLAGS   = -O2 -disable-simplify-libcalls
 
 #ifndef TOOLPREFIX
 TOOLPREFIX      := $(shell \
-        if which $(ARCH)-unknown-elf-gcc > /dev/null; \
+        if which $(ARCH)-unknown-elf-gcc > /dev/null 2>&1; \
         then echo "$(ARCH)-unknown-elf-"; \
-        elif which $(ARCH)-linux-gnu-gcc > /dev/null; \
+        elif which $(ARCH)-linux-gnu-gcc > /dev/null 2>&1; \
         then echo "$(ARCH)-linux-gnu-"; \
-		elif which $(ARCH)-suse-linux-gcc > /dev/null; \
+		elif which $(ARCH)-suse-linux-gcc > /dev/null 2>&1; \
 		then echo "$(ARCH)-suse-linux-"; \
         else \
         echo "error: cannot find gcc for $(ARCH)" 1>&2; exit 1; fi)
