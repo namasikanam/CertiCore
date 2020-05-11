@@ -169,8 +169,12 @@ kernelmap = $(call mapfile, kernel)
 kernelmapracket = $(call mapracket, kernel)
 kernelglobal = $(call globalfile, kernel)
 
+# for asm-offsets.S
+$(O)/asm-offsets.S: verif/asm-offsets.c
+	$(V)$(CC) -o $@ $(filter-out -g,$(CFLAGS)) $(KCFLAGS) -S $<
+
 VERIFY_TEST := \
-	verif/refinement.rkt \
+	verif/refinement.rkt
 
 $(kernelasm): $(kernel)
 	@$(OBJDUMP) -M no-aliases --prefix-address -w -f -d -z --show-raw-insn $< > $@
@@ -202,19 +206,20 @@ KLLS = $(foreach file, $(KCS), $(O)/$(file))
 $(O)/kernel.ll: $(KLLS)
 	@echo "+ llvm link & opt $<"
 	$(QUIET_GEN)$(LLVM_LINK) $^ | $(LLVM_OPT) -o $@~ $(LLVM_OPTFLAGS) -S
-	$(Q)mv $@~ $@
+	$(V)mv $@~ $@
 
 # keep LLVM_ROSETTE around for now
 $(O)/kernel.ll.rkt: $(O)/kernel.ll $(LLVM_ROSETTE)
 	$(QUIET_GEN)$(SERVAL_LLVM) < $< > $@~
-	$(Q)mv $@~ $@
+	$(V)mv $@~ $@
 
 .PHONY: verify
 
 $(VERIFY_TEST): $(kernelasmracket) \
 	            $(kernelmapracket) \
 				$(kernelglobal)    \
-				$(O)/kernel.ll.rkt
+				$(O)/kernel.ll.rkt \
+				$(O)/asm-offsets.rkt
 
 verify: $(VERIFY_TEST)
 	$(RACO_TEST) $^

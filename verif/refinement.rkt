@@ -9,6 +9,7 @@
   serval/riscv/objdump
   (only-in racket/base struct-copy for)
   (prefix-in specification: "spec.rkt")
+  (prefix-in constant: "generated/asm-offsets.rkt")
   (prefix-in implementation:
     (combine-in
       "generated/kernel.asm.rkt"
@@ -27,14 +28,14 @@
 (define (rep-invariant cpu)
   (and (equal? (csr-ref cpu 'stvec) (find-symbol-start '__alltraps))
        (equal? (gpr-ref cpu 'sp) (bvadd (find-symbol-start 'bootstack)
-                                        (bv #x2000 64)))))
+                                        (bv constant:KSTACKSIZE 64)))))
 
 ; Initialize the machine state with concrete values
 ; consistent with the representation invariant.
 (define (init-rep-invariant cpu)
   (csr-set! cpu 'stvec (find-symbol-start '__alltraps))
   (gpr-set! cpu 'sp (bvadd (find-symbol-start 'bootstack)
-                           (bv #x2000 64))))
+                           (bv constant:KSTACKSIZE 64))))
 
 ; Check that init-rep-invariant is consistent with
 ; the representation invariant
@@ -61,15 +62,15 @@
 ; the program counter to the value in the mtvec CSR,
 ; a7 to the monitor call number,
 ; and a0 through a6 to the monitor call arguments.
-(define (cpu-interrupt cpu expcode)
+(define (cpu-interrupt cpu code)
   (set-cpu-pc! cpu (csr-ref cpu 'stvec))
   ; interrupt
-  (csr-set! cpu 'scause (bv expcode 64))
+  (csr-set! cpu 'scause code)
   (interpret-objdump-program cpu implementation:instructions))
 
 ; Check RISC-V refinement for a single system call using
 ; cpu-ecall and Serval's refinement definition
-(define (verify-riscv-refinement spec-func expcode)
+(define (verify-riscv-refinement spec-func code)
   (define cpu (init-cpu implementation:symbols implementation:globals))
   (init-rep-invariant cpu)
 
@@ -84,7 +85,7 @@
     ; Implementation state
     #:implstate cpu
     ; Implementation transition function
-    #:impl (lambda (c) (cpu-interrupt c expcode))
+    #:impl (lambda (c) (cpu-interrupt c code))
     ; Specification state
     #:specstate (specification:fresh-state)
     ; Specification transition function
@@ -112,14 +113,18 @@
 (define (check-symbols)
   (check-equal? (find-overlapping-symbol implementation:symbols) #f "Symbol overlap check failed"))
 
+(define (interrupt-cause code)
+  (let ([bc (bv code 64)]
+        [interrupt-mask (bvshl (bv 1 64) (bv 63 64))])
+    (bvor bc interrupt-mask)))
+
 (define refinement-tests
   (test-suite+ "RiscV tests" 
     (test-case+ "certicore symbol test" (check-symbols))
     (test-case+ "verify init-rep-invariant" (verify-rep-invariant))
     ;(test-case+ "verify boot invariants" (verify-boot-invariants)) 
-    (define s-timer-no #x8000000000000005)
     (test-case+ "timer refinement"
-        (verify-riscv-refinement specification:intrp-timer s-timer-no))))
+        (verify-riscv-refinement specification:intrp-timer (interrupt-cause constant:IRQ_S_TIMER)))))
 
 (module+ test
   (time (run-tests refinement-tests)))

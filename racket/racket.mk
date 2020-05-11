@@ -21,21 +21,6 @@ $(LLVM_ROSETTE): $(LLVM_ROSETTE_OBJS)
 	$(QUIET_GEN)$(SERVAL_LLVM) < $< > $@~
 	$(Q)mv $@~ $@
 
-%.globals.rkt: %.elf
-	$(Q)echo "#lang reader serval/lang/dwarf" > $@~
-	$(QUIET_GEN)$(OBJDUMP) --dwarf=info $< >> $@~
-	$(Q)mv $@~ $@
-
-%.asm.rkt: %.asm
-	$(QUIET_GEN)echo "#lang reader serval/riscv/objdump" > $@~ && \
-		cat $< >> $@~
-	$(Q)mv $@~ $@
-
-%.map.rkt: %.map
-	$(QUIET_GEN)echo "#lang reader serval/lang/nm" > $@~ && \
-		cat $< >> $@~
-	$(Q)mv "$@~" "$@"
-
 $(O)/%.py.rkt: %.py $(PYTHON_ROSETTE)
 	$(Q)$(MKDIR_P) $(@D)
 	$(QUIET_GEN)$(PYTHON_ROSETTE) $< > $@~
