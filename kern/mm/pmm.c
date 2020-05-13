@@ -7,40 +7,38 @@
 #include <sbi.h>
 #include <stdio.h>
 #include <string.h>
-#include <../sync/sync.h>
+#include <sync.h>
 #include <riscv.h>
 
 // virtual address of physical page array
-struct Page *pages;
+struct Page pages[NPAGE];
 // amount of physical memory (in pages)
-size_t npage = 0;
+size_t npage;
+// start of physical memory (in pages)
+size_t nbase;
 // the kernel image is mapped at VA=KERNBASE and PA=info.base
 uint64_t va_pa_offset;
-// memory starts at 0x80000000 in RISC-V
-// DRAM_BASE defined in riscv.h as 0x80000000
-const size_t nbase = DRAM_BASE / PGSIZE;
 
 // virtual address of boot-time page directory
-uintptr_t *satp_virtual = NULL;
+uintptr_t satp_virtual;
 // physical address of boot-time page directory
 uintptr_t satp_physical;
 
 // physical memory management
-const struct pmm_manager *pmm_manager;
-
+struct pmm_manager pmm_manager;
 
 static void check_alloc_page(void);
 
 // init_pmm_manager - initialize a pmm_manager instance
 static void init_pmm_manager(void) {
-    pmm_manager = &default_pmm_manager;
-    cprintf("memory management: %s\n", pmm_manager->name);
-    pmm_manager->init();
+    pmm_manager = default_pmm_manager;
+    cprintf("memory management: %s\n", pmm_manager.name);
+    pmm_manager.init();
 }
 
 // init_memmap - call pmm->init_memmap to build Page struct for free memory
 static void init_memmap(struct Page *base, size_t n) {
-    pmm_manager->init_memmap(base, n);
+    pmm_manager.init_memmap(base, n);
 }
 
 // alloc_pages - call pmm->alloc_pages to allocate a continuous n*PAGESIZE
@@ -50,7 +48,7 @@ struct Page *alloc_pages(size_t n) {
     bool intr_flag;
     local_intr_save(intr_flag);
     {
-        page = pmm_manager->alloc_pages(n);
+        page = pmm_manager.alloc_pages(n);
     }
     local_intr_restore(intr_flag);
     return page;
@@ -61,7 +59,7 @@ void free_pages(struct Page *base, size_t n) {
     bool intr_flag;
     local_intr_save(intr_flag);
     {
-        pmm_manager->free_pages(base, n);
+        pmm_manager.free_pages(base, n);
     }
     local_intr_restore(intr_flag);
 }
@@ -73,7 +71,7 @@ size_t nr_free_pages(void) {
     bool intr_flag;
     local_intr_save(intr_flag);
     {
-        ret = pmm_manager->nr_free_pages();
+        ret = pmm_manager.nr_free_pages();
     }
     local_intr_restore(intr_flag);
     return ret;
@@ -81,37 +79,32 @@ size_t nr_free_pages(void) {
 
 static void page_init(void) {
     va_pa_offset = PHYSICAL_MEMORY_OFFSET;
+    nbase = NBASE;
+    npage = NBASE + NPAGE;
 
     uint64_t mem_begin = KERNEL_BEGIN_PADDR;
-    uint64_t mem_size = PHYSICAL_MEMORY_END - KERNEL_BEGIN_PADDR;
-    uint64_t mem_end = PHYSICAL_MEMORY_END; //硬编码取代 sbi_query_memory()接口
+    uint64_t mem_size = KERNEL_MEMEND_PADDR - KERNEL_BEGIN_PADDR;
+    uint64_t mem_end = KERNEL_MEMEND_PADDR; // 硬编码
 
-    cprintf("physcial memory map:\n");
-    cprintf("  memory: 0x%016lx, [0x%016lx, 0x%016lx].\n", mem_size, mem_begin,
-            mem_end - 1);
-
-    uint64_t maxpa = mem_end;
-
-    if (maxpa > KERNTOP) {
-        maxpa = KERNTOP;
-    }
+    cprintf("physcial memory:\n");
+    cprintf("  memory: 0x%016lx, [0x%016lx, 0x%016lx].\n", mem_size, mem_begin, mem_end - 1);
 
     extern char end[];
 
-    npage = maxpa / PGSIZE;
-    //kernel在end[]结束, pages是剩下的页的开始
-    pages = (struct Page *)ROUNDUP((void *)end, PGSIZE);
-
-    for (size_t i = 0; i < npage - nbase; i++) {
+    for (size_t i = 0; i < NPAGE; i++) {
         SetPageReserved(pages + i);
     }
 
-    uintptr_t freemem = PADDR((uintptr_t)pages + sizeof(struct Page) * (npage - nbase));
-
+    uintptr_t freemem = PADDR((uintptr_t)end);
     mem_begin = ROUNDUP(freemem, PGSIZE);
     mem_end = ROUNDDOWN(mem_end, PGSIZE);
+
     if (freemem < mem_end) {
         init_memmap(pa2page(mem_begin), (mem_end - mem_begin) / PGSIZE);
+
+        // just debugging
+        cprintf("free memory :\n");
+        cprintf("  memory: 0x%016lx, [0x%016lx, 0x%016lx].\n", mem_end - mem_begin, mem_begin, mem_end - 1);
     }
 }
 
@@ -132,12 +125,12 @@ void pmm_init(void) {
     check_alloc_page();
 
     extern char boot_page_table_sv39[];
-    satp_virtual = (pte_t*)boot_page_table_sv39;
+    satp_virtual = (uintptr_t)boot_page_table_sv39;
     satp_physical = PADDR(satp_virtual);
     cprintf("satp virtual address: 0x%016lx\nsatp physical address: 0x%016lx\n", satp_virtual, satp_physical);
 }
 
 static void check_alloc_page(void) {
-    pmm_manager->check();
+    pmm_manager.check();
     cprintf("check_alloc_page() succeeded!\n");
 }

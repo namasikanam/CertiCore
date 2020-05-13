@@ -5,7 +5,6 @@
 #include <atomic.h>
 #include <defs.h>
 #include <memlayout.h>
-#include <mmu.h>
 #include <riscv.h>
 
 // pmm_manager is a physical memory management class. A special pmm manager -
@@ -32,7 +31,7 @@ struct pmm_manager {
     void (*check)(void);            // check the correctness of XXX_pmm_manager
 };
 
-extern const struct pmm_manager *pmm_manager;
+extern struct pmm_manager pmm_manager;
 
 void pmm_init(void);
 
@@ -76,9 +75,9 @@ size_t nr_free_pages(void); // number of free pages
         (void *)(__m_pa + va_pa_offset);                         \
     })
 */
-extern struct Page *pages;
+extern struct Page pages[NPAGE];
 extern size_t npage;
-extern const size_t nbase;
+extern size_t nbase;
 extern uint64_t va_pa_offset;
 
 static inline ppn_t page2ppn(struct Page *page) { return page - pages + nbase; }
