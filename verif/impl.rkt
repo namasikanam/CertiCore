@@ -59,16 +59,16 @@
         (bvult x1 y2)))
 
   (&&
-    ; length is non-negative
-    (forall (list pgi)
-            (=> (impl-is-head? pgi)
-                (bvult (bv 0 64) (pageno->pagedb.property pgi))))
-    ; non-overlapping
-    (forall (list pgi pgj)
-            (=> (&& (impl-is-head? pgi)
-                    (impl-is-head? pgj))
-                (! (overlap? pgi (bvadd pgi 
-                                        (pageno->pagedb.property pgi))
-                             pgj (bvadd pgj 
-                                        (pageno->pagedb.property pgj))))))
+     ;length is non-negative
+    ;(forall (list pgi)
+            ;(=> (impl-is-head? pgi)
+                ;(bvult (bv 0 64) (pageno->pagedb.property pgi))))
+     ;non-overlapping
+    ;(forall (list pgi pgj)
+            ;(=> (&& (impl-is-head? pgi)
+                    ;(impl-is-head? pgj))
+                ;(! (overlap? pgi (bvadd pgi 
+                                        ;(pageno->pagedb.property pgi))
+                             ;pgj (bvadd pgj 
+                                        ;(pageno->pagedb.property pgj))))))
     ))
