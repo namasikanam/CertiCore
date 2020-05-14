@@ -37,7 +37,6 @@
      (fprintf port "\n  pagedb.prop . ~a~a~a" (list %pageno) "~>" ((state-pagedb.prop s) %pageno))
      (fprintf port ")"))])
 
-
 (define (make-havoc-regs)
   (define-symbolic*
     ra sp gp tp t0 t1 t2 s0 s1 a0 a1 a2 a3 a4 a5 a6 a7 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 t3 t4 t5 t6
@@ -81,6 +80,10 @@
 (define (page-property? s pageno)
   (page-has-flag? s pageno constant:PG_PROPERTY))
 
+(define (page-is-head? s pageno)
+  (&& (! (page-reserved? s pageno))
+      (page-property? s pageno)))
+
 (define (page-clear-flag! s pageno flag)
   (define oldf ((state-pagedb.flag s) pageno))
   (update-state-pagedb.flag! s pageno (bvand oldf (bvnot (page-flag-mask flag)))))
@@ -100,7 +103,7 @@
     (map bv64 (range constant:NPAGE)))
   (findf (lambda (pageno)
            ; the first block of free mem. has page-property.
-           (&& (page-property? s pageno)
+           (&& (page-is-head? s pageno)
                (bvule num (page-freemems s pageno))))
          indexl))
 
@@ -125,14 +128,14 @@
     (define indexl 
       (map bv64 (range (bitvector->natural start) constant:NPAGE)))
     (findf (lambda (pageno)
-             (page-property? s pageno))
+             (page-is-head? s pageno))
            indexl))
 
   (define (find-block-prev end)
     (define indexl 
       (map bv64 (range (bitvector->natural end) -1 -1)))
     (findf (lambda (pageno)
-             (page-property? s pageno))
+             (page-is-head? s pageno))
            indexl))
 
   ; first find whether a free block around adjoins index
