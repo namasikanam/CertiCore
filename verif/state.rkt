@@ -102,6 +102,13 @@
     pred
     (lambda (val) (bvor val (page-flag-mask flag)))))
 
+(define (page-clear-flag-func! s pred flag)
+  (update-state-func-pagedb.flag! 
+    s
+    pred
+    (lambda (val) 
+      (bvand val (bvnot (page-flag-mask flag))))))
+
 (define (bv64 x) (bv x 64))
 
 (define (set-return! s val)
@@ -144,23 +151,21 @@
             (begin
               (page-set-flag-func! 
                 s
-                (lambda (pageno) (&& (bvule freeblk pageno)
-                                     (bvult pageno (bvadd num freeblk))))
+                (lambda (pageno) 
+                  (&& (bvule freeblk pageno)
+                      (bvult pageno (bvadd num freeblk))))
                 constant:PG_ALLOCATED)
               freeblk)
             (bv constant:NULLPAGE 64)))]))
   (set-return! s val))
 
 (define (spec-default-free-pages s index num)
-  (define end (bvadd index num))
-  (define (update-flags! index)
-    (cond
-      [(bveq index end) (void)]
-      [else
-        (begin
-          (page-clear-flag! s index constant:PG_ALLOCATED)
-          (update-flags! (bvadd1 index)))]))
-  (update-flags! index))
+  (page-clear-flag-func! 
+    s
+    (lambda (pageno) 
+      (&& (bvule index pageno)
+          (bvult pageno (bvadd num index))))
+    constant:PG_ALLOCATED))
 
 ;(define (find-free-pages s num)
   ;(define indexl 
