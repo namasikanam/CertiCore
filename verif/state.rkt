@@ -120,6 +120,17 @@
     (update-flags! freeblk))
   (if freeblk freeblk constant:NULLPAGE))
 
+(define (spec-default-free-pages s index num)
+  (define end (bvadd index num))
+  (define (update-flags! index)
+    (cond
+      [(bveq index end) (void)]
+      [else
+        (begin
+          (page-clear-flag! s index constant:PG_ALLOCATED)
+          (update-flags! (bvadd1 index)))]))
+  (update-flags! index))
+
 ;(define (find-free-pages s num)
   ;(define indexl 
     ;(map bv64 (range constant:NPAGE)))
