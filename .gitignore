@@ -17,6 +17,7 @@ compiled
 .qemu.out
 .check_output.log
 serval/
+*.log
 
 # For vim users:
 *.swp

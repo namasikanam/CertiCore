@@ -5,6 +5,10 @@
 #define NULL ((void *)0)
 #endif
 
+#ifndef NULLPAGE
+#define NULLPAGE 0x23333333
+#endif
+
 #define __always_inline inline __attribute__((always_inline))
 #define __noinline __attribute__((noinline))
 #define __noreturn __attribute__((noreturn))

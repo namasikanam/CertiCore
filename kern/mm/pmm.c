@@ -37,14 +37,14 @@ static void init_pmm_manager(void) {
 }
 
 // init_memmap - call pmm->init_memmap to build Page struct for free memory
-static void init_memmap(struct Page *base, size_t n) {
+static void init_memmap(size_t base, size_t n) {
     pmm_manager.init_memmap(base, n);
 }
 
 // alloc_pages - call pmm->alloc_pages to allocate a continuous n*PAGESIZE
 // memory
-struct Page *alloc_pages(size_t n) {
-    struct Page *page = NULL;
+size_t alloc_pages(size_t n) {
+    size_t page = NULLPAGE;
     bool intr_flag;
     local_intr_save(intr_flag);
     {
@@ -55,7 +55,7 @@ struct Page *alloc_pages(size_t n) {
 }
 
 // free_pages - call pmm->free_pages to free a continuous n*PAGESIZE memory
-void free_pages(struct Page *base, size_t n) {
+void free_pages(size_t base, size_t n) {
     bool intr_flag;
     local_intr_save(intr_flag);
     {
@@ -92,12 +92,17 @@ static void page_init(void) {
     extern char end[];
 
     for (size_t i = 0; i < NPAGE; i++) {
-        SetPageReserved(pages + i);
+        // clear flag for the beauty of zero
+        pages[i].flags= 0; 
+        SetPageReserved(i);
     }
 
     uintptr_t freemem = PADDR((uintptr_t)end);
     mem_begin = ROUNDUP(freemem, PGSIZE);
     mem_end = ROUNDDOWN(mem_end, PGSIZE);
+    if (mem_end > npage * PGSIZE) {
+        mem_end = npage * PGSIZE;
+    }
 
     if (freemem < mem_end) {
         init_memmap(pa2page(mem_begin), (mem_end - mem_begin) / PGSIZE);
