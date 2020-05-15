@@ -149,6 +149,7 @@
           (define freeblk (find-free-pages s num))
           (if freeblk
             (begin
+              (set-state-nrfree! s (bvsub (state-nrfree s) num))
               (page-set-flag-func! 
                 s
                 (lambda (pageno) 
@@ -167,11 +168,12 @@
     [(bvuge (bvadd base num) (bv constant:NPAGE 64)) (void)]
     [else
       (define end (bvadd base num))
-      (page-set-flag-func!
+      (page-clear-flag-func!
         s
         (lambda (pageno) (&& (bvuge pageno base)
-                             (bvult pageno end))))
-      (set-state-nrfree! s (bvadd((state-nrfree s) num)))
+                             (bvult pageno end)))
+        constant:PG_ALLOCATED)
+      (set-state-nrfree! s (bvadd (state-nrfree s) num))
       (void)]))
 
 ;(define (find-free-pages s num)
