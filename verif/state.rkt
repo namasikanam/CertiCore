@@ -4,6 +4,7 @@
   serval/lib/core
   serval/riscv/spec
   (only-in racket/list range)
+  (only-in racket/base struct-copy)
   (prefix-in constant: "generated/asm-offsets.rkt"))
 
 (provide
@@ -109,6 +110,15 @@
 
 (define (bv64 x) (bv x 64))
 
+(define (set-return! s val)
+  (set-state-regs! s (struct-copy regs (state-regs s) [a0 val])))
+
+(define (spec-magic s)
+  (set-return! s (bv 0 64)))
+
+(define (spec-default-nr-free s)
+  (set-return! s (state-nrfree s)))
+
 ; find head of the first block with at least num consecutive free pages 
 (define (find-free-pages s num)
   (define (find-free-accumulate lst acc ans)
@@ -129,20 +139,23 @@
   (find-free-accumulate indexl (bv 0 64) (bv 0 64)))
 
 (define (spec-default-alloc-pages s num)
-  (cond
-    [! (bvult (bv 0 64) num) (bv constant:NULLPAGE 64)]
-    [! (bvule num (state-nrfree s)) (bv constant:NULLPAGE 64)]
-    [else
-      (begin
-        (define freeblk (find-free-pages s num))
-        (when freeblk
-          (define end (bvadd num freeblk))
-          (page-set-flag-func!
-            s
-            (lambda (pageno) (&& (bvule freeblk pageno)
-                                 (bvult pageno end)))))
-        (if freeblk freeblk (bv constant:NULLPAGE 64)))
-      ]))
+  (define val
+    (cond
+      [(! (bvult (bv 0 64) num)) (bv constant:NULLPAGE 64)]
+      [(! (bvule num (state-nrfree s))) (bv constant:NULLPAGE 64)]
+      [else
+        (begin
+          (define freeblk (find-free-pages s num))
+          (if freeblk
+            (begin
+              (page-set-flag-func! 
+                s
+                (lambda (pageno) (&& (bvule freeblk pageno)
+                                     (bvult pageno (bvadd num freeblk))))
+                constant:PG_ALLOCATED)
+              freeblk)
+            (bv constant:NULLPAGE 64)))]))
+  (set-return! s val))
 
 (define (spec-default_free_pages s base num)
   (cond
