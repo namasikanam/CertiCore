@@ -174,8 +174,8 @@ $(O)/asm-offsets.S: verif/asm-offsets.c
 	$(V)$(CC) -o $@ $(filter-out -g,$(CFLAGS)) $(KCFLAGS) -S $<
 
 VERIFY_TEST := \
-	verif/riscv.rkt \
 	verif/llvm.rkt \
+	# verif/riscv.rkt
 
 $(kernelasm): $(kernel)
 	@$(OBJDUMP) -M no-aliases --prefix-address -w -f -d -z --show-raw-insn $< > $@

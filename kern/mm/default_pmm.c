@@ -57,10 +57,13 @@ default_alloc_pages(size_t n) {
 
 static void
 default_free_pages(size_t base, size_t n) {
-    if (base < 0 || base >= NPAGE) {
+    if (base >= NPAGE) {
         return;
     }
-    if (n <= 0 || n > NPAGE) {
+    if (n == 0) {
+        return;
+    }
+    if (n > NPAGE) {
         return;
     }
     if (base + n >= NPAGE) {
