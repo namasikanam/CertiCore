@@ -71,8 +71,9 @@
 (define (page-allocated? s pageno)
   (page-has-flag? s pageno constant:PG_ALLOCATED))
 
-(define (page-free? s pageno)
-  (! (page-allocated? s pageno)))
+(define (page-available? s pageno)
+  (&& (! (page-allocated? s pageno))
+      (! (page-reserved? s pageno))))
 
 (define (page-clear-flag! s pageno flag)
   (define oldf ((state-pagedb.flag s) pageno))
@@ -85,6 +86,25 @@
 (define (bv64 x) (bv x 64))
 
 ; find head of the first block with at least num consecutive free pages 
+(define (find-free-pages s num)
+  (define (bvadd1 op) (bvadd op (bv 1 64)))
+  (define (find-free-accumulate lst acc ans)
+    (cond
+      [(bveq num acc) ans] ; success in finding a block
+      [(null? lst) #f] ; failure
+      [(page-available? (car lst))
+       (find-free-accumulate 
+         (cdr lst)
+         (bvadd1 acc)
+         (if (bveq acc (bv 0 64))
+           (car lst)
+           ans))]
+      [else ; find an allocated one before success: start again!
+        (find-free-accumulate (cdr lst) (bv 0 64) (bv 0 64))]))
+  (define indexl (map bv64 (range constant:NPAGE)))
+  ; the first 'ans' does not matter, actually
+  (find-free-accumulate indexl (bv 0 64) (bv 0 64)))
+
 ;(define (find-free-pages s num)
   ;(define indexl 
     ;(map bv64 (range constant:NPAGE)))
