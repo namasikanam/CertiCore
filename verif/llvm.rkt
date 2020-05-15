@@ -47,8 +47,10 @@
       (verify-llvm-refinement spec-magic implementation:@verify_magic))
     (test-case+ "nr_free LLVM"
       (verify-llvm-refinement spec-default-nr-free implementation:@default_nr_free_pages))
-    (test-case+ "alloc_page LLVM"
+    (test-case+ "default_alloc_pages LLVM"
       (verify-llvm-refinement spec-default-alloc-pages implementation:@default_nr_free_pages (list (make-bv64))))
+    (test-case+ "default_free_pages LLVM"
+      (verify-llvm-refinement spec-default-free-pages implementation:@default_free_pages (list (make-bv64) (make-bv64))))
 ))
 
 (module+ test

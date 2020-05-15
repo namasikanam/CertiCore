@@ -63,6 +63,9 @@ default_free_pages(size_t base, size_t n) {
     if (!(n > 0)) {
         return;
     }
+    if (!(base > 0)) {
+        return;
+    }
     if (!(base + n < NPAGE)) {
         return;
     }
