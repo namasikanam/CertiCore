@@ -85,9 +85,10 @@
 
 (define (bv64 x) (bv x 64))
 
+(define (bvadd1 op) (bvadd op (bv 1 64)))
+
 ; find head of the first block with at least num consecutive free pages 
 (define (find-free-pages s num)
-  (define (bvadd1 op) (bvadd op (bv 1 64)))
   (define (find-free-accumulate lst acc ans)
     (cond
       [(bveq num acc) ans] ; success in finding a block
@@ -104,6 +105,20 @@
   (define indexl (map bv64 (range constant:NPAGE)))
   ; the first 'ans' does not matter, actually
   (find-free-accumulate indexl (bv 0 64) (bv 0 64)))
+
+(define (spec-default-alloc-pages s num)
+  (define freeblk (find-free-pages s num))
+  (when freeblk
+    (define end (bvadd num freeblk))
+    (define (update-flags! index)
+      (cond
+        [(bveq index end) (void)]
+        [else
+          (begin
+            (page-set-flag! s index constant:PG_ALLOCATED)
+            (update-flags! (bvadd1 index)))]))
+    (update-flags! freeblk))
+  (if freeblk freeblk constant:NULLPAGE))
 
 ;(define (find-free-pages s num)
   ;(define indexl 
