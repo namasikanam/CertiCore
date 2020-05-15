@@ -159,13 +159,20 @@
             (bv constant:NULLPAGE 64)))]))
   (set-return! s val))
 
-(define (spec-default-free-pages s index num)
-  (page-clear-flag-func! 
-    s
-    (lambda (pageno) 
-      (&& (bvule index pageno)
-          (bvult pageno (bvadd num index))))
-    constant:PG_ALLOCATED))
+(define (spec-default_free_pages s base num)
+  (cond
+    [(bvuge base (bv constant:NPAGE 64)) (void)]
+    [(bveq num (bv 0 64)) (void)]
+    [(bvugt num (bv constant:NPAGE 64)) (void)]
+    [(bvuge (bvadd base num) (bv constant:NPAGE 64)) (void)]
+    [else
+      (define end (bvadd base num))
+      (page-set-flag-func!
+        s
+        (lambda (pageno) (&& (bvuge pageno base)
+                             (bvult pageno end))))
+      (set-state-nrfree! s (bvadd((state-nrfree s) num)))
+      (void)]))
 
 ;(define (find-free-pages s num)
   ;(define indexl 
