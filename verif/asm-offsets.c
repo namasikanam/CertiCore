@@ -1,4 +1,5 @@
 #include "mmu.h"
+#include "defs.h"
 #include "memlayout.h"
 #include "riscv.h"
 
@@ -12,4 +13,5 @@ void asm_offsets(void)
     DEFINE(NPAGE, NPAGE);
     DEFINE(PG_RESERVED, PG_reserved);
     DEFINE(PG_ALLOCATED, PG_allocated);
+    DEFINE(NULLPAGE, NULLPAGE);
 }
