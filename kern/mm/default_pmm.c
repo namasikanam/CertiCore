@@ -33,9 +33,6 @@ default_alloc_pages(size_t n) {
     if (n > nr_free) {
         return NULLPAGE;
     }
-    if (n > NPAGE) {
-        return NULLPAGE;
-    }
 
     size_t page = NULLPAGE;
     size_t first_usable = 0;
@@ -60,10 +57,13 @@ default_alloc_pages(size_t n) {
 
 static void
 default_free_pages(size_t base, size_t n) {
-    if (!(n > 0)) {
+    if (base < 0 || base >= NPAGE) {
         return;
     }
-    if (!(base + n < NPAGE)) {
+    if (n <= 0 || n > NPAGE - nr_free) {
+        return;
+    }
+    if (base + n >= NPAGE) {
         return;
     }
 

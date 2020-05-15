@@ -105,18 +105,24 @@
   (find-free-accumulate indexl (bv 0 64) (bv 0 64)))
 
 (define (spec-default-alloc-pages s num)
-  (define freeblk (find-free-pages s num))
-  (when freeblk
-    (define end (bvadd num freeblk))
-    (define (update-flags! index)
-      (cond
-        [(bveq index end) (void)]
-        [else
-          (begin
-            (page-set-flag! s index constant:PG_ALLOCATED)
-            (update-flags! (bvadd1 index)))]))
-    (update-flags! freeblk))
-  (if freeblk freeblk constant:NULLPAGE))
+  (cond
+    [! (bvult (bv 0 64) num) (bv constant:NULLPAGE 64)]
+    [! (bvule num (state-nrfree s)) (bv constant:NULLPAGE 64)]
+    [else
+      (begin
+        (define freeblk (find-free-pages s num))
+        (when freeblk
+          (define end (bvadd num freeblk))
+          (define (update-flags! index)
+            (cond
+              [(bveq index end) (void)]
+              [else
+                (begin
+                  (page-set-flag! s index constant:PG_ALLOCATED)
+                  (update-flags! (bvadd1 index)))]))
+          (update-flags! freeblk))
+        (if freeblk freeblk (bv constant:NULLPAGE 64)))
+      ])
 
 (define (spec-default-free-pages s index num)
   (define end (bvadd index num))
