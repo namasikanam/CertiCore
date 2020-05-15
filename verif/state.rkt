@@ -103,10 +103,11 @@
     (lambda (val) (bvor val (page-flag-mask flag)))))
 
 (define (page-clear-flag-func! s pred flag)
-  (update-state-func-pagedb.flag!
+  (update-state-func-pagedb.flag! 
     s
     pred
-    (lambda (val) (bvand val (bvnot (page-flag-mask flag))))))
+    (lambda (val) 
+      (bvand val (bvnot (page-flag-mask flag))))))
 
 (define (bv64 x) (bv x 64))
 
@@ -148,10 +149,12 @@
           (define freeblk (find-free-pages s num))
           (if freeblk
             (begin
+              (set-state-nrfree! s (bvsub (state-nrfree s) num))
               (page-set-flag-func! 
                 s
-                (lambda (pageno) (&& (bvule freeblk pageno)
-                                     (bvult pageno (bvadd num freeblk))))
+                (lambda (pageno) 
+                  (&& (bvule freeblk pageno)
+                      (bvult pageno (bvadd num freeblk))))
                 constant:PG_ALLOCATED)
               freeblk)
             (bv constant:NULLPAGE 64)))]))

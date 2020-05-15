@@ -50,7 +50,7 @@ default_alloc_pages(size_t n) {
         for (size_t p = page; p < page + n; p ++) {
             SetPageAllocated(p);
         }
-        nr_free += n;
+        nr_free -= n;
     }
     return page;
 }
