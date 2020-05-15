@@ -12,9 +12,7 @@
 
 (struct state (regs 
                nrfree
-               pagedb.refcnt
-               pagedb.flag
-               pagedb.prop)
+               pagedb.flag)
   #:transparent #:mutable
   #:methods gen:equal+hash
   [(define (equal-proc s t equal?-recur)
@@ -24,9 +22,7 @@
          ; pagedb
          (forall (list pageno)
                  (=> (page-in-bound? pageno)
-                     (&& (bveq ((state-pagedb.flag s) pageno) ((state-pagedb.flag t) pageno))
-                         (bveq ((state-pagedb.prop s) pageno) ((state-pagedb.prop t) pageno))
-                         (bveq ((state-pagedb.refcnt s) pageno) ((state-pagedb.refcnt t) pageno)))))))
+                     (&& (bveq ((state-pagedb.flag s) pageno) ((state-pagedb.flag t) pageno)))))))
    (define (hash-proc s hash-recur) 1)
    (define (hash2-proc s hash2-recur) 2)]
   ; pretty-print function
@@ -34,9 +30,7 @@
   [(define (write-proc s port mode)
      (define-symbolic %pageno (bitvector 64))
      (fprintf port "(state")
-     (fprintf port "\n  pagedb.refcnt . ~a~a~a" (list %pageno) "~>" ((state-pagedb.refcnt s) %pageno))
      (fprintf port "\n  pagedb.flag . ~a~a~a" (list %pageno) "~>" ((state-pagedb.flag s) %pageno))
-     (fprintf port "\n  pagedb.prop . ~a~a~a" (list %pageno) "~>" ((state-pagedb.prop s) %pageno))
      (fprintf port ")"))])
 
 (define (make-havoc-regs)
@@ -48,24 +42,18 @@
     satp scause scounteren sepc sscratch sstatus stvec stval mepc sip sie))
 
 (define (make-havoc-state)
-  (define-symbolic* symbolic-pagedb.prop
-                    symbolic-pagedb.flag
-                    symbolic-pagedb.refcnt
+  (define-symbolic* symbolic-pagedb.flag
                     (~> (bitvector 64) (bitvector 64)))
   (define-symbolic* symbolic-nrfree (bitvector 64))
   (state (make-havoc-regs)
          symbolic-nrfree
-         symbolic-pagedb.flag
-         symbolic-pagedb.refcnt
-         symbolic-pagedb.prop))
+         symbolic-pagedb.flag))
 
 (define-syntax-rule (make-state-updater name getter setter)
   (define (name state indices value)
     (setter state (update (getter state) indices value))))
 
 (make-state-updater update-state-pagedb.flag! state-pagedb.flag set-state-pagedb.flag!)
-(make-state-updater update-state-pagedb.prop! state-pagedb.prop set-state-pagedb.prop!)
-(make-state-updater update-state-pagedb.refcnt! state-pagedb.refcnt set-state-pagedb.refcnt!)
 
 (define (page-flag-mask flag)
   (bvshl (bv 1 64) (bv flag 64)))
@@ -80,13 +68,11 @@
 (define (page-reserved? s pageno)
   (page-has-flag? s pageno constant:PG_RESERVED))
 
-; PG_PROPERTY means the head of a free mem block
-(define (page-property? s pageno)
-  (page-has-flag? s pageno constant:PG_PROPERTY))
+(define (page-allocated? s pageno)
+  (page-has-flag? s pageno constant:PG_ALLOCATED))
 
-(define (page-is-head? s pageno)
-  (&& (! (page-reserved? s pageno))
-      (page-property? s pageno)))
+(define (page-free? s pageno)
+  (! (page-allocated? s pageno)))
 
 (define (page-clear-flag! s pageno flag)
   (define oldf ((state-pagedb.flag s) pageno))
@@ -95,9 +81,6 @@
 (define (page-set-flag! s pageno flag)
   (define oldf ((state-pagedb.flag s) pageno))
   (update-state-pagedb.flag! s pageno (bvor oldf (page-flag-mask flag))))
-
-(define (page-freemems s pageno)
-  ((state-pagedb.prop s) pageno))
 
 (define (bv64 x) (bv x 64))
 

@@ -99,7 +99,7 @@ static void page_init(void) {
 
     for (size_t i = 0; i < NPAGE; i++) {
         // clear flag for the beauty of zero
-        pages[i].flags= 0; 
+        pages[i].flags = 0; 
         SetPageReserved(i);
     }
 
