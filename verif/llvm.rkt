@@ -35,14 +35,13 @@
     #:ri (compose1 mregions-invariants machine-mregions)
     args))
 
-
 (define (spec-magic s)
   (set-state-regs! s (struct-copy regs (state-regs s) [a0 (bv 0 64)])))
 
 (define llvm-tests
   (test-suite+ "LLVM tests"
     (test-case+ "magic LLVM"
-      (verify-llvm-refinement spec-magic implementation:@cprintf))
+      (verify-llvm-refinement spec-magic implementation:@verify_magic))
 ))
 
 (module+ test

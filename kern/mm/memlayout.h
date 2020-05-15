@@ -39,9 +39,9 @@ typedef uintptr_t pde_t;
  * that convert Page to other data types, such as physical address.
  * */
 struct Page {
-    int ref;                        // page frame's reference counter
+    uint64_t ref;                        // page frame's reference counter
     uint64_t flags;                 // array of flags that describe the status of the page frame
-    unsigned int property;          // the num of free block, used in first fit pm manager
+    uint64_t property;          // the num of free block, used in first fit pm manager
     list_entry_t page_link;         // free list link
 };
 

@@ -77,6 +77,12 @@ size_t nr_free_pages(void) {
     return ret;
 }
 
+#ifdef IS_VERIF
+uint64_t verify_magic(void) {
+    return 0;
+}
+#endif
+
 static void page_init(void) {
     va_pa_offset = PHYSICAL_MEMORY_OFFSET;
     nbase = NBASE;
