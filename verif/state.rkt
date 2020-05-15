@@ -124,8 +124,8 @@
 
 (define (spec-default-alloc-pages s num)
   (cond
-    [! (bvult (bv 0 64) num) (bv constant:NULLPAGE 64)]
-    [! (bvule num (state-nrfree s)) (bv constant:NULLPAGE 64)]
+    [(! (bvult (bv 0 64) num)) (bv constant:NULLPAGE 64)]
+    [(! (bvule num (state-nrfree s))) (bv constant:NULLPAGE 64)]
     [else
       (begin
         (define freeblk (find-free-pages s num))
@@ -134,7 +134,8 @@
           (page-set-flag-func!
             s
             (lambda (pageno) (&& (bvule freeblk pageno)
-                                 (bvult pageno end)))))
+                                 (bvult pageno end)))
+            constant:PG_ALLOCATED))
         (if freeblk freeblk (bv constant:NULLPAGE 64)))
       ]))
 
