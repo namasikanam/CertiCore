@@ -92,7 +92,7 @@
     (cond
       [(bveq num acc) ans] ; success in finding a block
       [(null? lst) #f] ; failure
-      [(page-available? (car lst))
+      [(page-available? s (car lst))
        (find-free-accumulate 
          (cdr lst)
          (bvadd1 acc)
