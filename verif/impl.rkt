@@ -10,12 +10,13 @@
 
 (define (mregions-abstract mregions)
   (define block-pagedb (find-block-by-name mregions 'pages))
-  (define free-area (find-block-by-name mregions 'free_area))
 
   (state (zero-regs)
+         ; nr_free
+         (mblock-iload (find-block-by-name mregions 'nr_free) null)
          ; pagedb.flag
          (lambda (pageno)
-           (mblock-iload block-pagedb (list pageno 'flags)))
+           (mblock-iload block-pagedb (list pageno 'flags)))))
 
 (define (mregions-invariants mregions)
   (define block-pagedb (find-block-by-name mregions 'pages))
@@ -45,9 +46,9 @@
 
   (&&
      ;length is non-negative
-    (forall (list pgi)
-            (=> (impl-is-head? pgi)
-                (bvult (bv 0 64) (pageno->pagedb.property pgi))))
+    ;(forall (list pgi)
+            ;(=> (impl-is-head? pgi)
+                ;(bvult (bv 0 64) (pageno->pagedb.property pgi))))
      ;non-overlapping
     ;(forall (list pgi pgj)
             ;(=> (&& (impl-is-head? pgi)

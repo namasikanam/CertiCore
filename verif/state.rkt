@@ -85,52 +85,52 @@
 (define (bv64 x) (bv x 64))
 
 ; find head of the first block with at least num consecutive free pages 
-(define (find-free-pages s num)
-  (define indexl 
-    (map bv64 (range constant:NPAGE)))
-  (findf (lambda (pageno)
-           (&& (page-is-head? s pageno)
-               (bvule num (page-freemems s pageno))))
-         indexl))
+;(define (find-free-pages s num)
+  ;(define indexl 
+    ;(map bv64 (range constant:NPAGE)))
+  ;(findf (lambda (pageno)
+           ;(&& (page-is-head? s pageno)
+               ;(bvule num (page-freemems s pageno))))
+         ;indexl))
 
-(define (allocate-pages s num) ; alloc num-page block using first fit algo.
-  (define (update-free-pages s index num)
-    (define newhead (bvadd index num))
-    (define newfree (bvsub (page-freemems s index) num)))
+;(define (allocate-pages s num) ; alloc num-page block using first fit algo.
+  ;(define (update-free-pages s index num)
+    ;(define newhead (bvadd index num))
+    ;(define newfree (bvsub (page-freemems s index) num)))
 
-  (let ([index (find-free-pages s num)])
-    (when index (update-free-pages s index num))))
+  ;(let ([index (find-free-pages s num)])
+    ;(when index (update-free-pages s index num))))
 
-; free the block from index with num pages
-(define (free-pages s index num) 
+;; free the block from index with num pages
+;(define (free-pages s index num) 
 
-  (define (find-block-next start)
-    (define indexl 
-      (map bv64 (range (bitvector->natural start) constant:NPAGE)))
-    (findf (lambda (pageno)
-             (page-is-head? s pageno))
-           indexl))
+  ;(define (find-block-next start)
+    ;(define indexl 
+      ;(map bv64 (range (bitvector->natural start) constant:NPAGE)))
+    ;(findf (lambda (pageno)
+             ;(page-is-head? s pageno))
+           ;indexl))
 
-  (define (find-block-prev end)
-    (define indexl 
-      (map bv64 (range (bitvector->natural end) -1 -1)))
-    (findf (lambda (pageno)
-             (page-is-head? s pageno))
-           indexl))
+  ;(define (find-block-prev end)
+    ;(define indexl 
+      ;(map bv64 (range (bitvector->natural end) -1 -1)))
+    ;(findf (lambda (pageno)
+             ;(page-is-head? s pageno))
+           ;indexl))
 
-  ; first find whether a free block around adjoins index
-  (let ([next (find-block-next (bvadd index num))]
-        [prev (find-block-prev (bvsub index (bv 1 64)))])
+  ;; first find whether a free block around adjoins index
+  ;(let ([next (find-block-next (bvadd index num))]
+        ;[prev (find-block-prev (bvsub index (bv 1 64)))])
 
-    ; if possible, merge the block with previous block 
-    ; then indexp would be the first block, after merge
-    (define indexp
-      (if (&& prev (bveq index (bvadd prev (page-freemems prev))))
-        (begin
-          (page-clear-flag! s index constant:PG_PROPERTY)
-          prev)
-        index))
+    ;; if possible, merge the block with previous block 
+    ;; then indexp would be the first block, after merge
+    ;(define indexp
+      ;(if (&& prev (bveq index (bvadd prev (page-freemems prev))))
+        ;(begin
+          ;(page-clear-flag! s index constant:PG_PROPERTY)
+          ;prev)
+        ;index))
 
-    ; likewise, merge the next block if possible
-    (when (&& next (bveq next (bvadd index num)))
-      (page-clear-flag! s next constant:PG_PROPERTY))))
+    ;; likewise, merge the next block if possible
+    ;(when (&& next (bveq next (bvadd index num)))
+      ;(page-clear-flag! s next constant:PG_PROPERTY))))
