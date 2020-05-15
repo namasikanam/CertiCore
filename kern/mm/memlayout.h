@@ -6,7 +6,7 @@
 // NB: 4096 pages, excluding opensbi
 // it's rather small, actually --hzl
 // Notice: NPAGE is not the hardcoded npage
-#define NPAGE               0x1000
+#define NPAGE               0x0005
 
 #define KERNEL_BEGIN_PADDR          0x80200000
 #define PHYSICAL_MEMORY_OFFSET      0xFFFFFFFF40000000
