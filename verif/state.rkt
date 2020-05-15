@@ -162,20 +162,26 @@
 
 (define (spec-default_free_pages s base num)
   (cond
-    [(bvuge base (bv constant:NPAGE 64)) (void)]
-    [(bveq num (bv 0 64)) (void)]
-    [(bvuge num (bv constant:NPAGE 64)) (void)]
-    [(bvuge (bvadd base num) (bv constant:NPAGE 64)) (void)]
+    [(bvuge base (bv constant:NPAGE 64))
+     (set-return! s (bv 0 64))]
+    [(bveq num (bv 0 64))
+     (set-return! s (bv 0 64))]
+    [(bvugt num (bv constant:NPAGE 64))
+     (set-return! s (bv 0 64))]
+    [(bvugt (bvadd base num) (bv constant:NPAGE 64))
+     (set-return! s (bv 0 64))]
+    [(bvugt num (bvsub (bv constant:NPAGE 64) (state-nrfree s)))
+     (set-return! s (bv 0 64))]
     [else
-       (define end (bvadd base num))
-       (page-clear-flag-func!
-         s
-         (lambda (pageno)
-           (&& (bvuge pageno base)
-           (bvult pageno end))
-           constant:PG_ALLOCATED))
-       (set-state-nrfree! s (bvadd (state-nrfree s) num))
-      (void)]))
+      ; (page-clear-flag-func!
+      (page-set-flag-func!
+        s
+        (lambda (pageno)
+          (&& (bvuge pageno base)
+              (bvult pageno (bvadd base num))))
+        constant:PG_ALLOCATED)
+      (set-state-nrfree! s (bvadd (state-nrfree s) num))
+      (set-return! s (bv 0 64))]))
 
 ;(define (find-free-pages s num)
   ;(define indexl 

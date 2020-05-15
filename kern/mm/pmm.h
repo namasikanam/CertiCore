@@ -23,7 +23,7 @@ struct pmm_manager {
                     // the initial free physical memory space
     size_t (*alloc_pages)(
         size_t n);  // allocate >=n pages, depend on the allocation algorithm
-    void (*free_pages)(size_t base, size_t n);  // free >=n pages with
+    size_t (*free_pages)(size_t base, size_t n);  // free >=n pages with
                                                       // "base" addr of Page
                                                       // descriptor
                                                       // structures(memlayout.h)

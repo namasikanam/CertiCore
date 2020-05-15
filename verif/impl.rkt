@@ -47,7 +47,6 @@
         (bvult x1 y2)))
 
   (&&
-    (bvule (bv 0 64) nr_free)
     (bvule nr_free (bv constant:NPAGE 64))
      ;length is non-negative
     ;(forall (list pgi)

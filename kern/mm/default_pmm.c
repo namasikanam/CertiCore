@@ -55,28 +55,31 @@ default_alloc_pages(size_t n) {
     return page;
 }
 
-static void
+static size_t
 default_free_pages(size_t base, size_t n) {
     if (base >= NPAGE) {
-        return;
+        return 0;
     }
     if (n == 0) {
-        return;
+        return 0;
     }
     if (n > NPAGE) {
-        return;
+        return 0;
     }
-    if (base + n >= NPAGE) {
-        return;
+    if (base + n > NPAGE) {
+        return 0;
     }
-
-    for (size_t p = base; p != base + n; p ++) {
+    if (n > NPAGE - nr_free) {
+        return 0;
+    }
+    for (size_t p = base; p < base + n; p ++) {
         // if (PageReserved(p) || !PageAllocated(p)) {
           //  return;
         // }
         ClearPageAllocated(p);
     }
     nr_free += n;
+    return 0;
 }
 
 static size_t
