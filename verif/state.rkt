@@ -11,6 +11,7 @@
   (all-from-out serval/riscv/spec))
 
 (struct state (regs 
+               nrfree
                pagedb.refcnt
                pagedb.flag
                pagedb.prop)
@@ -19,6 +20,7 @@
   [(define (equal-proc s t equal?-recur)
      (define-symbolic pageno (bitvector 64))
      (&& (equal?-recur (state-regs s) (state-regs t))
+         (equal?-recur (state-nrfree s) (state-nrfree t))
          ; pagedb
          (forall (list pageno)
                  (=> (page-in-bound? pageno)
@@ -50,7 +52,9 @@
                     symbolic-pagedb.flag
                     symbolic-pagedb.refcnt
                     (~> (bitvector 64) (bitvector 64)))
+  (define-symbolic* symbolic-nrfree (bitvector 64))
   (state (make-havoc-regs)
+         symbolic-nrfree
          symbolic-pagedb.flag
          symbolic-pagedb.refcnt
          symbolic-pagedb.prop))
