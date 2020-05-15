@@ -63,7 +63,7 @@ struct Page {
 /* free_area_t - maintains a doubly linked list to record free (unused) pages */
 typedef struct {
     list_entry_t free_list;         // the list header
-    unsigned int nr_free;           // number of free pages in this free list
+    uint64_t nr_free;           // number of free pages in this free list
 } free_area_t;
 
 #endif /* !__ASSEMBLER__ */
