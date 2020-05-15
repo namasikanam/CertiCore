@@ -12,7 +12,9 @@ default_init(void) {
 
 static void
 default_init_memmap(size_t base, size_t n) {
-    assert(n > 0);
+    if (!(n > 0)) {
+        return;
+    }
     
     size_t p = base;
     for (; p != base + n; p ++) {
@@ -25,7 +27,9 @@ default_init_memmap(size_t base, size_t n) {
 
 static size_t
 default_alloc_pages(size_t n) {
-    assert(n > 0);
+    if (!(n > 0)) {
+        return NULLPAGE;
+    }
     if (n > nr_free) {
         return NULLPAGE;
     }
@@ -53,8 +57,12 @@ default_alloc_pages(size_t n) {
 
 static void
 default_free_pages(size_t base, size_t n) {
-    assert(n > 0);
-    assert(base + n < NPAGE);
+    if (!(n > 0)) {
+        return;
+    }
+    if (!(base + n < NPAGE)) {
+        return;
+    }
 
     for (size_t p = base; p != base + n; p ++) {
         assert(!PageReserved(p) && PageAllocated(p));
