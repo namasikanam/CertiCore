@@ -21,6 +21,8 @@
 (define (mregions-invariants mregions)
   (define block-pagedb (find-block-by-name mregions 'pages))
 
+  (define nr_free (mblock-iload (find-block-by-name mregions 'nr_free) null))
+
   (define (pageno->pagedb.flag pageno)
     (mblock-iload block-pagedb (list pageno 'flags)))
 
@@ -45,6 +47,8 @@
         (bvult x1 y2)))
 
   (&&
+    (bvule (bv 0 64) nr_free)
+    (bvule nr_free (bv constant:NPAGE 64))
      ;length is non-negative
     ;(forall (list pgi)
             ;(=> (impl-is-head? pgi)
