@@ -85,8 +85,6 @@
 
 (define (bv64 x) (bv x 64))
 
-(define (bvadd1 op) (bvadd op (bv 1 64)))
-
 ; find head of the first block with at least num consecutive free pages 
 (define (find-free-pages s num)
   (define (find-free-accumulate lst acc ans)
