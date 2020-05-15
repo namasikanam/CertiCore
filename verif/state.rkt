@@ -106,7 +106,7 @@
   (update-state-func-pagedb.flag!
     s
     pred
-    (lambda (val) (bvand val (bvneg (page-flag-mask flag))))))
+    (lambda (val) (bvand val (bvnot (page-flag-mask flag))))))
 
 (define (bv64 x) (bv x 64))
 
@@ -161,15 +161,17 @@
   (cond
     [(bvuge base (bv constant:NPAGE 64)) (void)]
     [(bveq num (bv 0 64)) (void)]
-    [(bvugt num (bv constant:NPAGE 64)) (void)]
+    [(bvuge num (bv constant:NPAGE 64)) (void)]
     [(bvuge (bvadd base num) (bv constant:NPAGE 64)) (void)]
     [else
-      (define end (bvadd base num))
-      (page-set-flag-func!
-        s
-        (lambda (pageno) (&& (bvuge pageno base)
-                             (bvult pageno end))))
-      (set-state-nrfree! s (bvadd((state-nrfree s) num)))
+       (define end (bvadd base num))
+       (page-clear-flag-func!
+         s
+         (lambda (pageno)
+           (&& (bvuge pageno base)
+           (bvult pageno end))
+           constant:PG_ALLOCATED))
+       (set-state-nrfree! s (bvadd (state-nrfree s) num))
       (void)]))
 
 ;(define (find-free-pages s num)
