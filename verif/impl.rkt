@@ -10,6 +10,7 @@
 
 (define (mregions-abstract mregions)
   (define block-pagedb (find-block-by-name mregions 'pages))
+  (define free-area (find-block-by-name mregions 'free_area))
 
   (state (zero-regs)
          ; pagedb.flag
@@ -44,9 +45,9 @@
 
   (&&
      ;length is non-negative
-    ;(forall (list pgi)
-            ;(=> (impl-is-head? pgi)
-                ;(bvult (bv 0 64) (pageno->pagedb.property pgi))))
+    (forall (list pgi)
+            (=> (impl-is-head? pgi)
+                (bvult (bv 0 64) (pageno->pagedb.property pgi))))
      ;non-overlapping
     ;(forall (list pgi pgj)
             ;(=> (&& (impl-is-head? pgi)

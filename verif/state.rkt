@@ -17,6 +17,7 @@
   [(define (equal-proc s t equal?-recur)
      (define-symbolic pageno (bitvector 64))
      (&& (equal?-recur (state-regs s) (state-regs t))
+         (equal?-recur (state-nrfree s) (state-nrfree t))
          ; pagedb
          (forall (list pageno)
                  (=> (page-in-bound? pageno)
@@ -42,6 +43,7 @@
 (define (make-havoc-state)
   (define-symbolic* symbolic-pagedb.flag
                     (~> (bitvector 64) (bitvector 64)))
+  (define-symbolic* symbolic-nrfree (bitvector 64))
   (state (make-havoc-regs)
          symbolic-pagedb.flag))
 

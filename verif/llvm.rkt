@@ -38,10 +38,15 @@
 (define (spec-magic s)
   (set-state-regs! s (struct-copy regs (state-regs s) [a0 (bv 0 64)])))
 
+(define (spec-default-nr-free s)
+  (set-state-regs! s (struct-copy regs (state-regs s) [a0 (state-nrfree s)])))
+
 (define llvm-tests
   (test-suite+ "LLVM tests"
     (test-case+ "magic LLVM"
       (verify-llvm-refinement spec-magic implementation:@verify_magic))
+    (test-case+ "nr_free LLVM"
+      (verify-llvm-refinement spec-default-nr-free implementation:@default_nr_free_pages))
 ))
 
 (module+ test
