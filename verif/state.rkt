@@ -83,6 +83,24 @@
   (define oldf ((state-pagedb.flag s) pageno))
   (update-state-pagedb.flag! s pageno (bvor oldf (page-flag-mask flag))))
 
+(define (update-func func path value-func)
+  (define (normalize-path e)
+    (if (procedure? e) e (lambda (x) (equal? x e))))
+  (define pred (normalize-path path))
+  (lambda args (if (apply pred args) (value-func (apply func args)) (apply func args))))
+
+(define-syntax-rule (make-state-updater-func name getter setter)
+  (define (name state pred value-func)
+    (setter state (update-func (getter state) pred value-func))))
+
+(make-state-updater-func update-state-func-pagedb.flag! state-pagedb.flag set-state-pagedb.flag!)
+ 
+(define (page-set-flag-func! s pred flag)
+  (update-state-func-pagedb.flag! 
+    s
+    pred
+    (lambda (val) (bvor val (page-flag-mask flag)))))
+
 (define (bv64 x) (bv x 64))
 
 ; find head of the first block with at least num consecutive free pages 
@@ -113,16 +131,12 @@
         (define freeblk (find-free-pages s num))
         (when freeblk
           (define end (bvadd num freeblk))
-          (define (update-flags! index)
-            (cond
-              [(bveq index end) (void)]
-              [else
-                (begin
-                  (page-set-flag! s index constant:PG_ALLOCATED)
-                  (update-flags! (bvadd1 index)))]))
-          (update-flags! freeblk))
+          (page-set-flag-func!
+            s
+            (lambda (pageno) (&& (bvule freeblk pageno)
+                                 (bvult pageno end)))))
         (if freeblk freeblk (bv constant:NULLPAGE 64)))
-      ])
+      ]))
 
 (define (spec-default-free-pages s index num)
   (define end (bvadd index num))
