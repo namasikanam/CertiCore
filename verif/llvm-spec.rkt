@@ -4,7 +4,7 @@
   serval/lib/core
   serval/riscv/spec
   (only-in racket/list range)
-  (only-in racket/base struct-copy)
+  (only-in racket/base struct-copy for)
   (prefix-in constant: "generated/asm-offsets.rkt"))
 
 (provide
@@ -33,6 +33,19 @@
      (fprintf port "(state")
      (fprintf port "\n  pagedb.flag . ~a~a~a" (list %pageno) "~>" ((state-pagedb.flag s) %pageno))
      (fprintf port ")"))])
+
+; Tried to print state, but failed for abstracted implementation states in this way.
+;(define (print-state cex s)
+;  (printf "\n s = ~v\n" s)
+;  (printf "(nrfree ~v)\n" (evaluate (state-nrfree s) cex))
+;  (define flags (evaluate (state-pagedb.flag s) cex))
+;  (define pagenos (map bv64 (range constant:NPAGE)))
+;  (define (print-flag pageno)
+;    (printf "\n  ~a~a~a" pageno "~>" (flags pageno)))
+;  (printf "(flags")
+;  (map print-flag pagenos)
+;  (printf ")")
+;)
 
 (define (make-havoc-regs)
   (define-symbolic*

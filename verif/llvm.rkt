@@ -7,10 +7,12 @@
   serval/spec/refinement
   "llvm-impl.rkt"
   "llvm-spec.rkt"
-  (only-in racket/base parameterize struct-copy)
+  (only-in racket/base parameterize struct-copy hash->list)
+  (only-in racket/list range)
   (prefix-in implementation: "generated/kernel.map.rkt")
   (prefix-in implementation: "generated/kernel.global.rkt")
   (prefix-in implementation: "generated/kernel.ll.rkt")
+  (prefix-in constant: "generated/asm-offsets.rkt")
 )
 
 (define (make-machine-func func)
@@ -26,14 +28,35 @@
 
 (define (verify-llvm-refinement spec-func impl-func [args null])
   (define machine (make-machine implementation:symbols implementation:globals))
+
+  (define (ce-handler s1 s2 cex)
+    (displayln "counter model (detailed)")
+    (map
+      (lambda
+        (l)
+        (define key (car l))
+        (define value (cdr l))
+        (printf "  ~v:" key)
+        (if
+          (fv? value)
+          (map
+            (lambda
+              (i)
+              (printf "\n    ~a ~~> ~a" (bv i 64) (value (bv i 64))))
+            (range constant:NPAGE))
+          (printf "~v" value))
+        (printf "\n"))
+      (hash->list (model cex))))
+
   (verify-refinement
-    #:implstate machine
-    #:impl (make-machine-func impl-func)
-    #:specstate (make-havoc-state)
-    #:spec spec-func
-    #:abs abs-function
-    #:ri (compose1 mregions-invariants machine-mregions)
-    args))
+  #:implstate machine
+  #:impl (make-machine-func impl-func)
+  #:specstate (make-havoc-state)
+  #:spec spec-func
+  #:abs abs-function
+  #:ri (compose1 mregions-invariants machine-mregions)
+  args
+  ce-handler))
 
 (define llvm-tests
   (test-suite+ "LLVM tests"

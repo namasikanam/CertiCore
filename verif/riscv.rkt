@@ -76,6 +76,8 @@
 
   (define (handle-ce s1 s2 cex)
     ;(printf "Args: ~v\n" (map bitvector->natural (evaluate args cex)))
+    (display "\ncounter example:")
+    (display cex)
     (displayln "\nspec state:")
     (specification:print-state cex s1)
     (displayln "\nabs(impl state):")
