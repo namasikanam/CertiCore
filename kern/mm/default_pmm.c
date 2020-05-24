@@ -36,7 +36,12 @@ default_alloc_pages(size_t n) {
 
     size_t page = NULLPAGE;
     size_t first_usable = 0;
-    for (size_t p = 0; p < NPAGE; p ++)
+#ifdef __clang__
+#ifdef IS_VERIF
+    #pragma clang loop unroll(full)
+#endif
+#endif
+    for (size_t p = 0; p < NPAGE; ++p)
         if (PageReserved(p) || PageAllocated(p)) {
             first_usable = p + 1;
         }
@@ -47,9 +52,14 @@ default_alloc_pages(size_t n) {
             }
         }
     if (page != NULLPAGE) {
-        for (size_t p = page; p < page + n; p ++) {
-            SetPageAllocated(p);
-        }
+#ifdef __clang__
+#ifdef IS_VERIF
+    #pragma clang loop unroll(full)
+#endif
+#endif
+        for (size_t p = 0; p < NPAGE; ++p)
+            if (p >= page && p < page + n)
+                SetPageAllocated(p);
         nr_free -= n;
     }
     return page;
@@ -72,12 +82,14 @@ default_free_pages(size_t base, size_t n) {
     if (n > NPAGE - nr_free) {
         return 0;
     }
-    for (size_t p = base; p < base + n; p ++) {
-        // if (PageReserved(p) || !PageAllocated(p)) {
-          //  return;
-        // }
-        ClearPageAllocated(p);
-    }
+#ifdef __clang__
+#ifdef IS_VERIF
+    #pragma clang loop unroll(full)
+#endif
+#endif
+    for (size_t p = 0; p < NPAGE; ++p)
+        if (base <= p && p < base + n)
+            ClearPageAllocated(p);
     nr_free += n;
     return 0;
 }
