@@ -43,11 +43,6 @@
     (&& (! (impl-page-allocated? pageno))
         (! (impl-page-reserved? pageno))))
 
-  (define all-pages
-    (map
-      (lambda (pageno-int) (bv pageno-int 64))
-      (range constant:NPAGE)))
-
   ; two pages
   (define-symbolic pgi pgj (bitvector 64))
 
@@ -61,7 +56,7 @@
 
     ; An invariant to characterize nr_free
     ; i don't know why it doesn't work
-    ;(equal?
+    ;(eq?
     ;  (bitvector->integer nr_free)
     ;  (length (filter impl-page-available? all-pages)))
 
@@ -78,3 +73,8 @@
                              ;pgj (bvadd pgj 
                                         ;(pageno->pagedb.property pgj))))))
   ))
+
+(define all-pages
+  (map
+    (lambda (pageno-int) (bv pageno-int 64))
+    (range constant:NPAGE)))

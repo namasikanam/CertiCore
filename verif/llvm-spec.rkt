@@ -34,19 +34,6 @@
      (fprintf port "\n  pagedb.flag . ~a~a~a" (list %pageno) "~>" ((state-pagedb.flag s) %pageno))
      (fprintf port ")"))])
 
-; Tried to print state, but failed for abstracted implementation states in this way.
-;(define (print-state cex s)
-;  (printf "\n s = ~v\n" s)
-;  (printf "(nrfree ~v)\n" (evaluate (state-nrfree s) cex))
-;  (define flags (evaluate (state-pagedb.flag s) cex))
-;  (define pagenos (map bv64 (range constant:NPAGE)))
-;  (define (print-flag pageno)
-;    (printf "\n  ~a~a~a" pageno "~>" (flags pageno)))
-;  (printf "(flags")
-;  (map print-flag pagenos)
-;  (printf ")")
-;)
-
 (define (make-havoc-regs)
   (define-symbolic*
     ra sp gp tp t0 t1 t2 s0 s1 a0 a1 a2 a3 a4 a5 a6 a7 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 t3 t4 t5 t6
