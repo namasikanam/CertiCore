@@ -8,7 +8,7 @@
   serval/riscv/interp
   serval/riscv/objdump
   (only-in racket/base struct-copy for)
-  (prefix-in specification: "spec.rkt")
+  (prefix-in specification: "riscv-spec.rkt")
   (prefix-in constant: "generated/asm-offsets.rkt")
   (prefix-in implementation:
     (combine-in

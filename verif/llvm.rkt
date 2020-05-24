@@ -5,8 +5,8 @@
   serval/lib/core
   serval/lib/unittest
   serval/spec/refinement
-  "impl.rkt"
-  "state.rkt"
+  "llvm-impl.rkt"
+  "llvm-spec.rkt"
   (only-in racket/base parameterize struct-copy)
   (prefix-in implementation: "generated/kernel.map.rkt")
   (prefix-in implementation: "generated/kernel.global.rkt")
@@ -37,14 +37,18 @@
 
 (define llvm-tests
   (test-suite+ "LLVM tests"
-   (test-case+ "magic LLVM"
-     (verify-llvm-refinement spec-magic implementation:@verify_magic))
-   (test-case+ "nr_free LLVM"
-     (verify-llvm-refinement spec-default-nr-free implementation:@default_nr_free_pages))
-   (test-case+ "default_alloc_pages LLVM"
-     (verify-llvm-refinement spec-default-alloc-pages implementation:@default_alloc_pages (list (make-bv64))))
+    (test-case+ "magic LLVM"
+      (verify-llvm-refinement spec-magic implementation:@verify_magic))
+    (test-case+ "default_init LLVM"
+      (verify-llvm-refinement spec-default_init implementation:@default_init))
+    (test-case+ "default_init_memmap LLVM"
+      (verify-llvm-refinement spec-default_init_memmap implementation:@default_init_memmap (list (make-bv64) (make-bv64))))
+    (test-case+ "default_alloc_pages LLVM"
+      (verify-llvm-refinement spec-default_alloc_pages implementation:@default_alloc_pages (list (make-bv64))))
     (test-case+ "default_free_pages LLVM"
       (verify-llvm-refinement spec-default_free_pages implementation:@default_free_pages (list (make-bv64) (make-bv64))))
+    (test-case+ "default_nr_free_pages LLVM"
+      (verify-llvm-refinement spec-default_nr_free_pages implementation:@default_nr_free_pages (list)))
 ))
 
 (module+ test

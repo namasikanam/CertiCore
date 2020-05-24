@@ -37,8 +37,8 @@ static void init_pmm_manager(void) {
 }
 
 // init_memmap - call pmm->init_memmap to build Page struct for free memory
-static void init_memmap(size_t base, size_t n) {
-    pmm_manager.init_memmap(base, n);
+static uint64_t init_memmap(size_t base, size_t n) {
+    return pmm_manager.init_memmap(base, n);
 }
 
 // alloc_pages - call pmm->alloc_pages to allocate a continuous n*PAGESIZE
@@ -111,7 +111,8 @@ static void page_init(void) {
     }
 
     if (freemem < mem_end) {
-        init_memmap(pa2page(mem_begin), (mem_end - mem_begin) / PGSIZE);
+        uint64_t init_ret = init_memmap(pa2page(mem_begin), (mem_end - mem_begin) / PGSIZE);
+        assert(init_ret == 0);
 
         // just debugging
         cprintf("free memory :\n");

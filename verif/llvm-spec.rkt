@@ -50,6 +50,8 @@
          symbolic-nrfree
          symbolic-pagedb.flag))
 
+; ==== Utils =====
+
 (define-syntax-rule (make-state-updater name getter setter)
   (define (name state indices value)
     (setter state (update (getter state) indices value))))
@@ -114,11 +116,64 @@
 (define (set-return! s val)
   (set-state-regs! s (struct-copy regs (state-regs s) [a0 val])))
 
-(define (spec-magic s)
-  (set-return! s (bv 0 64)))
+; ==== Magic Spec ====
 
-(define (spec-default-nr-free s)
-  (set-return! s (state-nrfree s)))
+(define (spec-magic s)
+  (set-return! s (bv64 0)))
+
+; ==== Init Spec ====
+
+(define (spec-default_init s)
+  (set-state-nrfree! s (bv64 0))
+  (set-return! s (void)))
+
+; ==== Init Mem Spec ====
+
+; If the flags of pages in [base, base + num) are all 1?
+(define (page-valid-flag? s base num flag)
+  (define pages
+    (map bv64 (range constant:NPAGE)))
+  (define (check-flag? pageno)
+    (=>
+      (&& (bvuge pageno base)
+          (bvult pageno (bvadd base num)))
+      (page-has-flag? s pageno flag)))
+  (andmap check-flag? pages))
+
+; If the flags of pages in [base, base + num) are all 0?
+; Similar to the above one, expect [andmap] -> [ormap]
+(define (page-sat-flag? s base num flag)
+  (define pages
+    (map bv64 (range constant:NPAGE)))
+  (define (check-flag? pageno)
+    (&&
+      (&& (bvuge pageno base)
+          (bvult pageno (bvadd base num)))
+      (page-has-flag? s pageno flag)))
+  (ormap check-flag? pages))
+
+(define (spec-default_init_memmap s base num)
+  (define val
+    (cond
+      [(! (bvugt num (bv64 0))) (bv64 1)]
+      [(! (bvule num (bv64 constant:NPAGE))) (bv64 2)]
+      [(! (bvule base (bv64 constant:NPAGE))) (bv64 3)]
+      [(! (bvule (bvadd base num) (bv64 constant:NPAGE))) (bv64 4)]
+      [(! (page-valid-flag? s base num constant:PG_RESERVED)) (bv64 5)]
+      [(page-sat-flag? s base num constant:PG_ALLOCATED) (bv64 6)]
+      [(! (bvule (bvadd (state-nrfree s) num) (bv64 constant:NPAGE))) (bv64 7)]
+      [else
+        (page-clear-flag-func!
+          s
+          (lambda (pageno)
+            (&& (bvuge pageno base)
+                (bvult pageno (bvadd base num))))
+          constant:PG_RESERVED)
+        (set-state-nrfree! s (bvadd (state-nrfree s) num))
+        (bv64 0)]))
+  (set-return! s val))
+
+; ==== Alloc Spec ====
 
 ; find head of the first block with at least num consecutive free pages 
 (define (find-free-pages s num)
@@ -130,20 +185,20 @@
        (find-free-accumulate 
          (cdr lst)
          (bvadd1 acc)
-         (if (bveq acc (bv 0 64))
+         (if (bveq acc (bv64 0))
            (car lst)
            ans))]
       [else ; find an allocated one before success: start again!
-        (find-free-accumulate (cdr lst) (bv 0 64) (bv 0 64))]))
+        (find-free-accumulate (cdr lst) (bv64 0) (bv64 0))]))
   (define indexl (map bv64 (range constant:NPAGE)))
   ; the first 'ans' does not matter, actually
-  (find-free-accumulate indexl (bv 0 64) (bv 0 64)))
+  (find-free-accumulate indexl (bv64 0) (bv64 0)))
 
-(define (spec-default-alloc-pages s num)
+(define (spec-default_alloc_pages s num)
   (define val
     (cond
-      [(! (bvult (bv 0 64) num)) (bv constant:NULLPAGE 64)]
-      [(! (bvule num (state-nrfree s))) (bv constant:NULLPAGE 64)]
+      [(! (bvult (bv64 0) num)) (bv64 constant:NULLPAGE)]
+      [(! (bvule num (state-nrfree s))) (bv64 constant:NULLPAGE)]
       [else
         (begin
           (define freeblk (find-free-pages s num))
@@ -157,21 +212,18 @@
                       (bvult pageno (bvadd num freeblk))))
                 constant:PG_ALLOCATED)
               freeblk)
-            (bv constant:NULLPAGE 64)))]))
+            (bv64 constant:NULLPAGE)))]))
   (set-return! s val))
+
+; ==== Free Spec ====
 
 (define (spec-default_free_pages s base num)
   (cond
-    [(bvuge base (bv constant:NPAGE 64))
-     (set-return! s (bv 0 64))]
-    [(bveq num (bv 0 64))
-     (set-return! s (bv 0 64))]
-    [(bvugt num (bv constant:NPAGE 64))
-     (set-return! s (bv 0 64))]
-    [(bvugt (bvadd base num) (bv constant:NPAGE 64))
-     (set-return! s (bv 0 64))]
-    [(bvugt num (bvsub (bv constant:NPAGE 64) (state-nrfree s)))
-     (set-return! s (bv 0 64))]
+    [(bvuge base (bv64 constant:NPAGE)) (void)]
+    [(bveq num (bv64 0)) (void)]
+    [(bvugt num (bv64 constant:NPAGE)) (void)]
+    [(bvugt (bvadd base num) (bv64 constant:NPAGE)) (void)]
+    [(bvugt num (bvsub (bv64 constant:NPAGE) (state-nrfree s))) (void)]
     [else
       (page-clear-flag-func!
         s
@@ -180,4 +232,10 @@
               (bvult pageno (bvadd base num))))
         constant:PG_ALLOCATED)
       (set-state-nrfree! s (bvadd (state-nrfree s) num))
-      (set-return! s (bv 0 64))]))
+      (void)])
+  (set-return! s (void)))
+
+; ==== NR Free Spec ====
+
+(define (spec-default_nr_free_pages s)
+  (set-return! s (state-nrfree s)))

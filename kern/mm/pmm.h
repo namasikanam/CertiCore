@@ -17,13 +17,13 @@ struct pmm_manager {
     void (*init)(
         void);  // initialize internal description&management data structure
                 // (free block list, number of free block) of XXX_pmm_manager
-    void (*init_memmap)(
+    uint64_t (*init_memmap)(
         size_t base,
         size_t n);  // setup description&management data structcure according to
                     // the initial free physical memory space
     size_t (*alloc_pages)(
         size_t n);  // allocate >=n pages, depend on the allocation algorithm
-    size_t (*free_pages)(size_t base, size_t n);  // free >=n pages with
+    void (*free_pages)(size_t base, size_t n);  // free >=n pages with
                                                       // "base" addr of Page
                                                       // descriptor
                                                       // structures(memlayout.h)

@@ -10,36 +10,58 @@ default_init(void) {
     nr_free = 0;
 }
 
-static void
+// 0 means successful
+// 1 means !(n > 0)
+// 2 means !(n <= NPAGE)
+// 3 means !(base <= NPAGE)
+// 4 means !(base + n <= NPAGE)
+// 5 means there's a page in [base, base + n) that is not reserved
+// 6 means there's a page in [base, base + n) that is allocated
+static uint64_t
 default_init_memmap(size_t base, size_t n) {
-    if (!(n > 0)) {
-        return;
-    }
+    if (!(n > 0)) return 1;
+    if (!(n <= NPAGE)) return 2;
+    if (!(base <= NPAGE)) return 3;
+    if (!(base + n <= NPAGE)) return 4;
     
-    size_t p = base;
-    for (; p != base + n; p ++) {
-        assert(PageReserved(p));
-        ClearPageReserved(p);
-        assert(!PageAllocated(p));
-    }
+#if defined(__clang__) && defined(IS_VERIF)
+    #pragma clang loop unroll(full)
+#endif
+    for (size_t p = 0; p < NPAGE; ++p)
+        if (base <= p && p < base + n)
+            if (!PageReserved(p))
+                return 5;
+
+#if defined(__clang__) && defined(IS_VERIF)
+    #pragma clang loop unroll(full)
+#endif
+    for (size_t p = 0; p < NPAGE; ++p)
+        if (base <= p && p < base + n)
+            if (PageAllocated(p))
+                return 6;
+
+    if (!(nr_free + n <= NPAGE)) return 7;
+
+#if defined(__clang__) && defined(IS_VERIF)
+    #pragma clang loop unroll(full)
+#endif
+    for (size_t p = 0; p < NPAGE; ++p)
+        if (base <= p && p < base + n)
+            ClearPageReserved(p);
+
     nr_free += n;
+    return 0;
 }
 
 static size_t
 default_alloc_pages(size_t n) {
-    if (!(n > 0)) {
-        return NULLPAGE;
-    }
-    if (n > nr_free) {
-        return NULLPAGE;
-    }
+    if (!(n > 0)) return NULLPAGE;
+    if (n > nr_free) return NULLPAGE;
 
     size_t page = NULLPAGE;
     size_t first_usable = 0;
-#ifdef __clang__
-#ifdef IS_VERIF
+#if defined(__clang__) && defined(IS_VERIF)
     #pragma clang loop unroll(full)
-#endif
 #endif
     for (size_t p = 0; p < NPAGE; ++p)
         if (PageReserved(p) || PageAllocated(p)) {
@@ -52,10 +74,8 @@ default_alloc_pages(size_t n) {
             }
         }
     if (page != NULLPAGE) {
-#ifdef __clang__
-#ifdef IS_VERIF
+#if defined(__clang__) && defined(IS_VERIF)
     #pragma clang loop unroll(full)
-#endif
 #endif
         for (size_t p = 0; p < NPAGE; ++p)
             if (p >= page && p < page + n)
@@ -65,33 +85,27 @@ default_alloc_pages(size_t n) {
     return page;
 }
 
-static size_t
+static void
 default_free_pages(size_t base, size_t n) {
-    if (base >= NPAGE) {
-        return 0;
-    }
-    if (n == 0) {
-        return 0;
-    }
-    if (n > NPAGE) {
-        return 0;
-    }
-    if (base + n > NPAGE) {
-        return 0;
-    }
-    if (n > NPAGE - nr_free) {
-        return 0;
-    }
-#ifdef __clang__
-#ifdef IS_VERIF
+    if (base >= NPAGE) return;
+    if (n == 0) return;
+    if (n > NPAGE) return;
+    if (base + n > NPAGE) return;
+
+    // TODO: perhaps we could use a more reasonable check here,
+    // that is, pages to free are all allocated.
+    // If this is checked, with the help of the invariants,
+    // that nr_free == [number of available pages],
+    // the following requirement can be deduced.
+    if (n > NPAGE - nr_free) return;
+
+#if defined(__clang__) && defined(IS_VERIF)
     #pragma clang loop unroll(full)
-#endif
 #endif
     for (size_t p = 0; p < NPAGE; ++p)
         if (base <= p && p < base + n)
             ClearPageAllocated(p);
     nr_free += n;
-    return 0;
 }
 
 static size_t

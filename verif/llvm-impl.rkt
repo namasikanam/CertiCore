@@ -1,9 +1,10 @@
 #lang rosette/safe
 
 (require
-  "state.rkt"
+  "llvm-spec.rkt"
   serval/lib/core
   (prefix-in constant: "generated/asm-offsets.rkt")
+  (only-in racket/list range)
 )
 
 (provide (all-defined-out))
@@ -38,6 +39,15 @@
   (define (impl-page-allocated? pageno)
     (impl-page-has-flag? pageno constant:PG_ALLOCATED))
 
+  (define (impl-page-available? pageno)
+    (&& (! (impl-page-allocated? pageno))
+        (! (impl-page-reserved? pageno))))
+
+  (define all-pages
+    (map
+      (lambda (pageno-int) (bv pageno-int 64))
+      (range constant:NPAGE)))
+
   ; two pages
   (define-symbolic pgi pgj (bitvector 64))
 
@@ -48,7 +58,14 @@
 
   (&&
     (bvule nr_free (bv constant:NPAGE 64))
-     ;length is non-negative
+
+    ; An invariant to characterize nr_free
+    ; i don't know why it doesn't work
+    ;(equal?
+    ;  (bitvector->integer nr_free)
+    ;  (length (filter impl-page-available? all-pages)))
+
+    ;length is non-negative
     ;(forall (list pgi)
             ;(=> (impl-is-head? pgi)
                 ;(bvult (bv 0 64) (pageno->pagedb.property pgi))))
@@ -60,4 +77,4 @@
                                         ;(pageno->pagedb.property pgi))
                              ;pgj (bvadd pgj 
                                         ;(pageno->pagedb.property pgj))))))
-    ))
+  ))
