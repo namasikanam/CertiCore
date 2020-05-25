@@ -80,31 +80,12 @@
               ((state-pagedb.flag s) pageno)
               ((state-pagedb.flag t) pageno)))))
       all-pages))
-  (define (ce-handler sol)
-    (displayln "counter model (detailed)")
-    (map
-      (lambda
-        (l)
-        (define key (car l))
-        (define value (cdr l))
-        (printf "  ~v:" key)
-        (if
-          (fv? value)
-          (map
-            (lambda
-              (i)
-              (printf "\n    ~a ~~> ~a" i (value i)))
-            all-pages)
-          (printf "~v" value))
-        (printf "\n"))
-      (hash->list (model sol))))
   (serval:check-step-consistency
     #:state-init make-havoc-state
     #:state-copy (lambda (s) (struct-copy state s))
     #:unwinding unwinding
     spec
-    args
-    ce-handler))
+    args))
 
 (define llvm-tests
   (test-suite+ "LLVM tests"
