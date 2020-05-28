@@ -8,7 +8,6 @@
 
 ; Debuging function to print specification state
 (define (print-state cex s)
-  (printf " tick: ~v\n" (evaluate (state-tick s) cex))
   (printf " tick: ~v\n" (bitvector->natural (evaluate (state-tick s) cex))))
 
 (define (fresh-state)

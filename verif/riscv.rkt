@@ -7,7 +7,7 @@
   serval/riscv/base
   serval/riscv/interp
   serval/riscv/objdump
-  (only-in racket/base struct-copy for)
+  (only-in racket/base struct-copy)
   (prefix-in specification: "riscv-spec.rkt")
   (prefix-in constant: "generated/asm-offsets.rkt")
   (prefix-in implementation:
@@ -15,8 +15,6 @@
       "generated/kernel.asm.rkt"
       "generated/kernel.global.rkt"
       "generated/kernel.map.rkt")))
-
-(provide refinement-tests)
 
 ; Helper function to find the start of a symbol in our monitor's image
 (define (find-symbol-start name)

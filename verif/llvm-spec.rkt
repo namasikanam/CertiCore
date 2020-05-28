@@ -4,7 +4,7 @@
   serval/lib/core
   serval/riscv/spec
   (only-in racket/list range)
-  (only-in racket/base struct-copy for)
+  (only-in racket/base struct-copy)
   (prefix-in constant: "generated/asm-offsets.rkt"))
 
 (provide
@@ -100,16 +100,13 @@
  
 (define (page-set-flag-func! s pred flag)
   (update-state-func-pagedb.flag! 
-    s
-    pred
-    (lambda (val) (bvor val (page-flag-mask flag)))))
+    s pred (lambda (val) 
+             (bvor val (page-flag-mask flag)))))
 
 (define (page-clear-flag-func! s pred flag)
   (update-state-func-pagedb.flag! 
-    s
-    pred
-    (lambda (val) 
-      (bvand val (bvnot (page-flag-mask flag))))))
+    s pred (lambda (val) 
+             (bvand val (bvnot (page-flag-mask flag))))))
 
 (define (bv64 x) (bv x 64))
 
