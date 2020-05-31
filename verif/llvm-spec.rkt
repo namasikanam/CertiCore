@@ -2,6 +2,7 @@
 
 (require
   serval/lib/core
+  serval/lib/unittest
   serval/riscv/spec
   (only-in racket/list range)
   (only-in racket/base struct-copy)
@@ -52,12 +53,6 @@
 
 ; ==== Utils =====
 
-(define-syntax-rule (make-state-updater name getter setter)
-  (define (name state indices value)
-    (setter state (update (getter state) indices value))))
-
-(make-state-updater update-state-pagedb.flag! state-pagedb.flag set-state-pagedb.flag!)
-
 (define (page-flag-mask flag)
   (bvshl (bv 1 64) (bv flag 64)))
 
@@ -78,40 +73,28 @@
   (&& (! (page-allocated? s pageno))
       (! (page-reserved? s pageno))))
 
-(define (page-clear-flag! s pageno flag)
-  (define oldf ((state-pagedb.flag s) pageno))
-  (update-state-pagedb.flag! s pageno (bvand oldf (bvnot (page-flag-mask flag)))))
-
-(define (page-set-flag! s pageno flag)
-  (define oldf ((state-pagedb.flag s) pageno))
-  (update-state-pagedb.flag! s pageno (bvor oldf (page-flag-mask flag))))
-
-(define (update-func func path value-func)
-  (define (normalize-path e)
-    (if (procedure? e) e (lambda (x) (equal? x e))))
-  (define pred (normalize-path path))
-  (lambda args (if (apply pred args) (value-func (apply func args)) (apply func args))))
-
-(define-syntax-rule (make-state-updater-func name getter setter)
-  (define (name state pred value-func)
-    (setter state (update-func (getter state) pred value-func))))
-
-(make-state-updater-func update-state-func-pagedb.flag! state-pagedb.flag set-state-pagedb.flag!)
- 
-(define (page-set-flag-func! s pred flag)
-  (update-state-func-pagedb.flag! 
-    s pred (lambda (val) 
-             (bvor val (page-flag-mask flag)))))
-
-(define (page-clear-flag-func! s pred flag)
-  (update-state-func-pagedb.flag! 
-    s pred (lambda (val) 
-             (bvand val (bvnot (page-flag-mask flag))))))
-
 (define (bv64 x) (bv x 64))
 
 (define (set-return! s val)
   (set-state-regs! s (struct-copy regs (state-regs s) [a0 val])))
+
+; ==== Function Updater =====
+
+(define (update-func func pred value-func)
+  (lambda args (if (apply pred args) (value-func (apply func args)) (apply func args))))
+
+(define (update-state-func-pagedb.flag! s pred value-func)
+  (set-state-pagedb.flag! s (update-func (state-pagedb.flag s) pred value-func)))
+
+(define (page-set-flag-func! s pred flag)
+  (update-state-func-pagedb.flag!
+    s pred (lambda (val)
+             (bvor val (page-flag-mask flag)))))
+
+(define (page-clear-flag-func! s pred flag)
+  (update-state-func-pagedb.flag!
+    s pred (lambda (val)
+             (bvand (bvnot (page-flag-mask flag)) val))))
 
 ; ==== Magic Spec ====
 
@@ -214,25 +197,76 @@
 
 ; ==== Free Spec ====
 
+; the unverified version
+; (define (spec-default_free_pages s base num)
+;   (cond
+;     [(bvuge base (bv64 constant:NPAGE)) (void)]
+;     [(bveq num (bv64 0)) (void)]
+;     [(bvugt num (bv64 constant:NPAGE)) (void)]
+;     [(bvugt (bvadd base num) (bv64 constant:NPAGE)) (void)]
+;     [(bvugt num (bvsub (bv64 constant:NPAGE) (state-nrfree s))) (void)]
+;     [else
+;       (page-clear-flag-func!
+;         s
+;         (lambda (pageno)
+;           (&& (bvuge pageno base)
+;               (bvult pageno (bvadd base num))))
+;         constant:PG_ALLOCATED)
+;       (set-state-nrfree! s (bvadd (state-nrfree s) num))
+;       (void)])
+;   (set-return! s (void)))
+
+; the verified version
 (define (spec-default_free_pages s base num)
-  (cond
-    [(bvuge base (bv64 constant:NPAGE)) (void)]
-    [(bveq num (bv64 0)) (void)]
-    [(bvugt num (bv64 constant:NPAGE)) (void)]
-    [(bvugt (bvadd base num) (bv64 constant:NPAGE)) (void)]
-    [(bvugt num (bvsub (bv64 constant:NPAGE) (state-nrfree s))) (void)]
-    [else
-      (page-clear-flag-func!
-        s
-        (lambda (pageno)
-          (&& (bvuge pageno base)
-              (bvult pageno (bvadd base num))))
-        constant:PG_ALLOCATED)
-      (set-state-nrfree! s (bvadd (state-nrfree s) num))
-      (void)])
+  (when
+    (&&
+      (! (bvuge base (bv64 constant:NPAGE)))
+      (! (bveq num (bv64 0)))
+      (! (bvugt num (bv64 constant:NPAGE)))
+      (! (bvugt (bvadd base num) (bv64 constant:NPAGE)))
+      (! (bvugt num (bvsub (bv64 constant:NPAGE) (state-nrfree s)))))
+    (page-clear-flag-func!
+      s
+      (lambda (pageno)
+        (&& (bvuge pageno base)
+            (bvult pageno (bvadd base num))))
+      constant:PG_ALLOCATED)
+    (set-state-nrfree! s (bvadd (state-nrfree s) num)))
   (set-return! s (void)))
 
 ; ==== NR Free Spec ====
 
 (define (spec-default_nr_free_pages s)
   (set-return! s (state-nrfree s)))
+
+(define spec-tests
+  (test-suite+
+  "tests for specification functions with concrete values"
+  #:before clear-asserts!
+  #:after  clear-asserts!
+
+    (test-case+
+      "spec-default_free_pages test"
+      (define s
+        (state
+          (regs (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0) (bv64 0))
+          (bv64 0)
+          (lambda
+              (pageno)
+            pageno)))
+      (define base (bv64 1))
+      (define num (bv64 3))
+      (spec-default_free_pages s base num)
+      (define new-flag (state-pagedb.flag s))
+
+      (check bveq (new-flag (bv64 0)) (bv64 0))
+      (check bveq (new-flag (bv64 1)) (bv64 1))
+      (check bveq (new-flag (bv64 2)) (bv64 0))
+      (check bveq (new-flag (bv64 3)) (bv64 1))
+      (check bveq (new-flag (bv64 4)) (bv64 4))
+    )
+  )
+)
+
+(module+ test
+  (time (run-tests spec-tests)))

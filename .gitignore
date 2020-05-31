@@ -18,6 +18,8 @@ compiled
 .check_output.log
 serval/
 *.log
+exp*
+verif/exp*
 
 # For vim users:
 *.swp
