@@ -16,6 +16,9 @@
 /* Represents true-or-false values */
 typedef int bool;
 
+#define true (1)
+#define false (0)
+
 /* Explicitly-sized versions of integer types */
 typedef char int8_t;
 typedef unsigned char uint8_t;
@@ -44,6 +47,8 @@ typedef unsigned long long uint_fast64_t;
  * */
 typedef int64_t intptr_t;
 typedef uint64_t uintptr_t;
+typedef intptr_t sint_t;
+typedef uintptr_t uint_t;
 
 /* size_t is used for memory object sizes */
 typedef uintptr_t size_t;

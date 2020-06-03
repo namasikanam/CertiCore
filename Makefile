@@ -110,13 +110,15 @@ KINCLUDE	+= kern/debug/ \
 			   kern/trap/ \
 			   kern/mm/ \
 			   kern/sync/ \
+			   kern/fs/
 
 KSRCDIR		+= kern/init \
 			   kern/libs \
 			   kern/debug \
 			   kern/driver \
 			   kern/trap \
-			   kern/mm
+			   kern/mm \
+			   kern/fs
 
 KCFLAGS		+= $(addprefix -I,$(KINCLUDE))
 LLVM_IFLAGS += $(addprefix -I,$(KINCLUDE))

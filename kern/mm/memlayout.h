@@ -2,11 +2,42 @@
 #define __KERN_MM_MEMLAYOUT_H__
 
 #include <mmu.h>
+/* This file contains the definitions for memory management in our OS. */
 
+/* *
+ * Virtual memory map:                                          Permissions
+ *                                                              kernel/user
+ *
+ *     4G ------------------> +---------------------------------+
+ *                            |                                 |
+ *                            |         Empty Memory (*)        |
+ *                            |                                 |
+ *                            +---------------------------------+ 0xFB000000
+ *                            |   Cur. Page Table (Kern, RW)    | RW/-- PTSIZE
+ *     VPT -----------------> +---------------------------------+ 0xFAC00000
+ *                            |        Invalid Memory (*)       | --/--
+ *     KERNTOP -------------> +---------------------------------+ 0xF8000000
+ *                            |                                 |
+ *                            |    Remapped Physical Memory     | RW/-- KMEMSIZE
+ *                            |                                 |
+ *     KERNBASE ------------> +---------------------------------+ 0xC0000000
+ *                            |                                 |
+ *                            |                                 |
+ *                            |                                 |
+ *                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ * (*) Note: The kernel ensures that "Invalid Memory" is *never* mapped.
+ *     "Empty Memory" is normally unmapped, but user programs may map pages
+ *     there if desired.
+ *
+ * */
 // NB: 4096 pages, excluding opensbi
 // it's rather small, actually --hzl
 // Notice: NPAGE is not the hardcoded npage
+#ifdef IS_VERIF
 #define NPAGE               0x0005
+#else
+#define NPAGE               0x1000
+#endif
 
 #define KERNEL_BEGIN_PADDR          0x80200000
 #define PHYSICAL_MEMORY_OFFSET      0xFFFFFFFF40000000
@@ -33,6 +64,7 @@
 
 typedef uintptr_t pte_t;
 typedef uintptr_t pde_t;
+typedef pte_t swap_entry_t; //the pte can also be a swap entry
 
 /* *
  * struct Page - Page descriptor structures. Each Page describes one
@@ -43,7 +75,11 @@ typedef uintptr_t pde_t;
  * Other properties may be inserted in the future.
  * */
 struct Page {
+    int ref;                        // page frame's reference counter
     uint64_t flags;                 // array of flags that describe the status of the page frame
+    uint_t visited;
+    list_entry_t pra_page_link;     // used for pra (page replace algorithm)
+    uintptr_t pra_vaddr;            // used for pra (page replace algorithm)
 };
 
 /* Flags describing the status of a page frame */
@@ -57,7 +93,12 @@ struct Page {
 #define SetPageAllocated(page)       set_bit(PG_allocated, &(pages[page].flags))
 #define ClearPageAllocated(page)     clear_bit(PG_allocated, &(pages[page].flags))
 #define PageAllocated(page)          test_bit(PG_allocated, &(pages[page].flags))
+// convert list entry to page
+#define le2page(le, member)                 \
+    to_struct((le), struct Page, member)
+
 
 #endif /* !__ASSEMBLER__ */
 
 #endif /* !__KERN_MM_MEMLAYOUT_H__ */
+

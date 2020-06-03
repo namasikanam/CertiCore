@@ -1,8 +1,8 @@
 #ifndef __KERN_SYNC_SYNC_H__
 #define __KERN_SYNC_SYNC_H__
 
-#include <defs.h>
 #include <intr.h>
+#include <mmu.h>
 #include <riscv.h>
 
 static inline bool __intr_save(void) {
@@ -23,6 +23,7 @@ static inline void __intr_restore(bool flag) {
     do {                   \
         x = __intr_save(); \
     } while (0)
+
 #define local_intr_restore(x) __intr_restore(x);
 
 #endif /* !__KERN_SYNC_SYNC_H__ */

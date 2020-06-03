@@ -32,6 +32,7 @@ struct pmm_manager {
 };
 
 extern struct pmm_manager pmm_manager;
+extern pde_t *boot_pgdir;
 
 void pmm_init(void);
 
@@ -41,6 +42,14 @@ size_t nr_free_pages(void); // number of free pages
 
 #define alloc_page() alloc_pages(1)
 #define free_page(page) free_pages(page, 1)
+
+pte_t *get_pte(pde_t *pgdir, uintptr_t la, bool create);
+struct Page *get_page(pde_t *pgdir, uintptr_t la, pte_t **ptep_store);
+void page_remove(pde_t *pgdir, uintptr_t la);
+int page_insert(pde_t *pgdir, struct Page *page, uintptr_t la, uint32_t perm);
+
+void tlb_invalidate(pde_t *pgdir, uintptr_t la);
+struct Page *pgdir_alloc_page(pde_t *pgdir, uintptr_t la, uint32_t perm);
 
 
 /* *
@@ -64,7 +73,7 @@ size_t nr_free_pages(void); // number of free pages
  * KADDR - takes a physical address and returns the corresponding kernel virtual
  * address. It panics if you pass an invalid physical address.
  * */
-/*
+
 #define KADDR(pa)                                                \
     ({                                                           \
         uintptr_t __m_pa = (pa);                                 \
@@ -74,7 +83,7 @@ size_t nr_free_pages(void); // number of free pages
         }                                                        \
         (void *)(__m_pa + va_pa_offset);                         \
     })
-*/
+
 extern struct Page pages[NPAGE];
 extern size_t npage;
 extern size_t nbase;
@@ -94,6 +103,48 @@ static inline size_t pa2page(uintptr_t pa) {
     }
     return PPN(pa) - nbase;
 }
-static inline void flush_tlb() { asm volatile("sfence.vm"); }
+
+static inline void *page2kva(size_t page) { return KADDR(page2pa(page)); }
+
+static inline size_t kva2page(void *kva) { return pa2page(PADDR(kva)); }
+
+static inline size_t pte2page(pte_t pte) {
+    if (!(pte & PTE_V)) {
+        panic("pte2page called with invalid pte");
+    }
+    return pa2page(PTE_ADDR(pte));
+}
+
+static inline size_t pde2page(pde_t pde) {
+    return pa2page(PDE_ADDR(pde));
+}
+
+static inline int page_ref(struct Page *page) { return page->ref; }
+
+static inline void set_page_ref(struct Page *page, int val) { page->ref = val; }
+
+static inline int page_ref_inc(struct Page *page) {
+    page->ref += 1;
+    return page->ref;
+}
+
+static inline int page_ref_dec(struct Page *page) {
+    page->ref -= 1;
+    return page->ref;
+}
+
+static inline void flush_tlb() { asm volatile("sfence.vma"); }
+
+// construct PTE from a page and permission bits
+static inline pte_t pte_create(uintptr_t ppn, int type) {
+    return (ppn << PTE_PPN_SHIFT) | PTE_V | type;
+}
+
+static inline pte_t ptd_create(uintptr_t ppn) { return pte_create(ppn, PTE_V); }
+
+extern char bootstack[];
+
+extern void *kmalloc(size_t n);
+extern void kfree(void *ptr, size_t n);
 
 #endif /* !__KERN_MM_PMM_H__ */
