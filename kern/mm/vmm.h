@@ -35,6 +35,7 @@ struct mm_struct {
     int map_count;                 // the count of these vma
     void *sm_priv;                 // the private data for swap manager
     int mm_count;                  // the number ofprocess which shared the mm
+    uint32_t padding;
     lock_t mm_lock;                // mutex for using dup_mmap fun to duplicat the mm
 };
 

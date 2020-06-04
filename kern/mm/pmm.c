@@ -466,7 +466,6 @@ struct Page *pgdir_alloc_page(pde_t *pgdir, uintptr_t la, uint32_t perm) {
         }
         if (swap_init_ok) {
             if (check_mm_struct != NULL) {
-                cprintf("%x\n", check_mm_struct->sm_priv);
             swap_map_swappable(check_mm_struct, la, page, 0);
             page->pra_vaddr = la;
             assert(page_ref(page) == 1);
