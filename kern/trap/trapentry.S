@@ -102,9 +102,16 @@ __alltraps:
 
     move  a0, sp
     jal trap
-    // sp should be the same as before "jal trap"
+    # sp should be the same as before "jal trap"
+
     .globl __trapret
 __trapret:
     RESTORE_ALL
-    // go back from supervisor call
+    # go back from supervisor call
     sret
+ 
+    .globl forkrets
+forkrets:
+    # set stack to this new process's trapframe
+    move sp, a0
+    j __trapret

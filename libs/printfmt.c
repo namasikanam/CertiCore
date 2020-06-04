@@ -53,7 +53,6 @@ printnum(void (*putch)(int, void*), void *putdat,
 
 /* *
  * getuint - get an unsigned int of various possible sizes from a varargs list
- * @num:        where the answer stores
  * @ap:         a varargs list pointer
  * @lflag:      determines the size of the vararg that @ap points to
  * */
@@ -72,7 +71,6 @@ getuint(va_list *ap, int lflag) {
 
 /* *
  * getint - same as getuint but signed, we can't use getuint because of sign extension
- * @num:        where the answer stores
  * @ap:         a varargs list pointer
  * @lflag:      determines the size of the vararg that @ap points to
  * */

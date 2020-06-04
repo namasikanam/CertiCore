@@ -3,6 +3,7 @@
 #include <string.h>
 #include <console.h>
 #include <kdebug.h>
+#include <picirq.h>
 #include <trap.h>
 #include <clock.h>
 #include <intr.h>
@@ -10,6 +11,7 @@
 #include <vmm.h>
 #include <ide.h>
 #include <swap.h>
+#include <proc.h>
 #include <kmonitor.h>
 
 int kern_init(void) __attribute__((noreturn));
@@ -20,7 +22,8 @@ int
 kern_init(void) {
     extern char edata[], end[];
     memset(edata, 0, end - edata);
-    cons_init();  // init the console
+
+    cons_init();                // init the console
 
     const char *message = "(THU.CST) os is loading ...";
     cprintf("%s\n\n", message);
@@ -31,22 +34,23 @@ kern_init(void) {
 
     pmm_init();                 // init physical memory management
 
+    pic_init();                 // init interrupt controller
     idt_init();                 // init interrupt descriptor table
 
     vmm_init();                 // init virtual memory management
+    proc_init();                // init process table
 
     ide_init();                 // init ide devices
     swap_init();                // init swap
 
     clock_init();               // init clock interrupt
-    // intr_enable();              // enable irq interrupt
+    intr_enable();              // enable irq interrupt
 
     //LAB1: CAHLLENGE 1 If you try to do it, uncomment lab1_switch_test()
     // user/kernel mode switch test
     //lab1_switch_test();
 
-    /* do nothing */
-    while (1);
+    cpu_idle();                 // run idle process
 }
 
 void __attribute__((noinline))

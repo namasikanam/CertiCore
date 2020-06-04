@@ -7,10 +7,12 @@
 #include <memlayout.h>
 #include <riscv.h>
 
-// pmm_manager is a physical memory management class. A special pmm manager -
-// XXX_pmm_manager
-// only needs to implement the methods in pmm_manager class, then
-// XXX_pmm_manager can be used
+/* fork flags used in do_fork*/
+#define CLONE_VM            0x00000100  // set if VM shared between processes
+#define CLONE_THREAD        0x00000200  // thread group
+
+// pmm_manager is a physical memory management class. A special pmm manager - XXX_pmm_manager
+// only needs to implement the methods in pmm_manager class, then XXX_pmm_manager can be used
 // by ucore to manage the total physical memory space.
 struct pmm_manager {
     const char *name;  // XXX_pmm_manager's name
@@ -33,6 +35,7 @@ struct pmm_manager {
 
 extern struct pmm_manager pmm_manager;
 extern pde_t *boot_pgdir;
+extern uintptr_t boot_cr3;
 
 void pmm_init(void);
 
@@ -49,14 +52,12 @@ int page_insert(pde_t *pgdir, struct Page *page, uintptr_t la, uint32_t perm);
 void tlb_invalidate(pde_t *pgdir, uintptr_t la);
 struct Page *pgdir_alloc_page(pde_t *pgdir, uintptr_t la, uint32_t perm);
 
+void print_pgdir(void);
 
 /* *
- * PADDR - takes a kernel virtual address (an address that points above
- * KERNBASE),
- * where the machine's maximum 256MB of physical memory is mapped and returns
- * the
- * corresponding physical address.  It panics if you pass it a non-kernel
- * virtual address.
+ * PADDR - takes a kernel virtual address (an address that points above KERNBASE),
+ * where the machine's maximum 256MB of physical memory is mapped and returns the
+ * corresponding physical address.  It panics if you pass it a non-kernel virtual address.
  * */
 #define PADDR(kva)                                                 \
     ({                                                             \
@@ -101,58 +102,77 @@ static inline ppn_t page2ppn(struct Page* page) {
     return page - pages + nbase;
 }
 
-static inline uintptr_t page2pa(struct Page* page) {
+static inline uintptr_t
+page2pa(struct Page *page) {
     return page2ppn(page) << PGSHIFT;
 }
 
-static inline struct Page* pa2page(uintptr_t pa) {
+static inline struct Page *
+pa2page(uintptr_t pa) {
     if (PPN(pa) >= npage) {
         panic("pa2page called with invalid pa");
     }
     return &pages[PPN(pa) - nbase];
 }
 
-static inline void *page2kva(struct Page* page) { return KADDR(page2pa(page)); }
+static inline void *
+page2kva(struct Page *page) {
+    return KADDR(page2pa(page));
+}
 
-static inline struct Page* kva2page(void *kva) { return pa2page(PADDR(kva)); }
+static inline struct Page *
+kva2page(void *kva) {
+    return pa2page(PADDR(kva));
+}
 
-static inline struct Page* pte2page(pte_t pte) {
+static inline struct Page *
+pte2page(pte_t pte) {
     if (!(pte & PTE_V)) {
         panic("pte2page called with invalid pte");
     }
     return pa2page(PTE_ADDR(pte));
 }
 
-static inline struct Page* pde2page(pde_t pde) {
+static inline struct Page *
+pde2page(pde_t pde) {
     return pa2page(PDE_ADDR(pde));
 }
 
-static inline int page_ref(struct Page *page) { return page->ref; }
+static inline int
+page_ref(struct Page *page) {
+    return page->ref;
+}
 
-static inline void set_page_ref(struct Page *page, int val) { page->ref = val; }
+static inline void
+set_page_ref(struct Page *page, int val) {
+    page->ref = val;
+}
 
-static inline int page_ref_inc(struct Page *page) {
+static inline int
+page_ref_inc(struct Page *page) {
     page->ref += 1;
     return page->ref;
 }
 
-static inline int page_ref_dec(struct Page *page) {
+static inline int
+page_ref_dec(struct Page *page) {
     page->ref -= 1;
     return page->ref;
 }
 
-static inline void flush_tlb() { asm volatile("sfence.vma"); }
+static inline void flush_tlb() {
+  asm volatile("sfence.vm");
+}
 
 // construct PTE from a page and permission bits
 static inline pte_t pte_create(uintptr_t ppn, int type) {
     return (ppn << PTE_PPN_SHIFT) | PTE_V | type;
 }
 
-static inline pte_t ptd_create(uintptr_t ppn) { return pte_create(ppn, PTE_V); }
+static inline pte_t ptd_create(uintptr_t ppn) {
+  return pte_create(ppn, PTE_V);
+}
 
 extern char bootstack[];
-
-extern void *kmalloc(size_t n);
-extern void kfree(void *ptr, size_t n);
 
 #endif /* !__KERN_MM_PMM_H__ */

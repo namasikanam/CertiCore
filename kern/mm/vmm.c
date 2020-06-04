@@ -7,6 +7,7 @@
 #include <pmm.h>
 #include <riscv.h>
 #include <swap.h>
+#include <kmalloc.h>
 
 /* 
   vmm design include two parts: mm_struct (mm) & vma_struct (vma)
@@ -18,7 +19,7 @@
    golbal functions
      struct mm_struct * mm_create(void)
      void mm_destroy(struct mm_struct *mm)
-     int do_pgfault(struct mm_struct *mm, uint_t error_code, uintptr_t addr)
+     int do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr)
 --------------
   vma related functions:
    global functions
@@ -33,26 +34,6 @@
      void check_vma_struct(void);
      void check_pgfault(void);
 */
-
-// szx func : print_vma and print_mm
-void print_vma(char *name, struct vma_struct *vma){
-	cprintf("-- %s print_vma --\n", name);
-	cprintf("   mm_struct: %p\n",vma->vm_mm);
-	cprintf("   vm_start,vm_end: %x,%x\n",vma->vm_start,vma->vm_end);
-	cprintf("   vm_flags: %x\n",vma->vm_flags);
-	cprintf("   list_entry_t: %p\n",&vma->list_link);
-}
-
-void print_mm(char *name, struct mm_struct *mm){
-	cprintf("-- %s print_mm --\n",name);
-	cprintf("   mmap_list: %p\n",&mm->mmap_list);
-	cprintf("   map_count: %d\n",mm->map_count);
-	list_entry_t *list = &mm->mmap_list;
-	for(int i=0;i<mm->map_count;i++){
-		list = list_next(list);
-		print_vma(name, le2vma(list,list_link));
-	}
-}
 
 static void check_vmm(void);
 static void check_vma_struct(void);
@@ -77,7 +58,7 @@ mm_create(void) {
 
 // vma_create - alloc a vma_struct & initialize it. (addr range: vm_start~vm_end)
 struct vma_struct *
-vma_create(uintptr_t vm_start, uintptr_t vm_end, uint_t vm_flags) {
+vma_create(uintptr_t vm_start, uintptr_t vm_end, uint32_t vm_flags) {
     struct vma_struct *vma = kmalloc(sizeof(struct vma_struct));
 
     if (vma != NULL) {
@@ -165,9 +146,9 @@ mm_destroy(struct mm_struct *mm) {
     list_entry_t *list = &(mm->mmap_list), *le;
     while ((le = list_next(list)) != list) {
         list_del(le);
-        kfree(le2vma(le, list_link),sizeof(struct vma_struct));  //kfree vma        
+        kfree(le2vma(le, list_link));  //kfree vma        
     }
-    kfree(mm, sizeof(struct mm_struct)); //kfree mm
+    kfree(mm); //kfree mm
     mm=NULL;
 }
 
@@ -181,20 +162,14 @@ vmm_init(void) {
 // check_vmm - check correctness of vmm
 static void
 check_vmm(void) {
-    size_t nr_free_pages_store = nr_free_pages();
     check_vma_struct();
     check_pgfault();
-
-    nr_free_pages_store--;	// szx : Sv39三级页表多占一个内存页，所以执行此操作
-    assert(nr_free_pages_store == nr_free_pages());
 
     cprintf("check_vmm() succeeded.\n");
 }
 
 static void
 check_vma_struct(void) {
-    size_t nr_free_pages_store = nr_free_pages();
-
     struct mm_struct *mm = mm_create();
     assert(mm != NULL);
 
@@ -248,8 +223,6 @@ check_vma_struct(void) {
 
     mm_destroy(mm);
 
-    assert(nr_free_pages_store == nr_free_pages());
-
     cprintf("check_vma_struct() succeeded!\n");
 }
 
@@ -258,18 +231,16 @@ struct mm_struct *check_mm_struct;
 // check_pgfault - check correctness of pgfault handler
 static void
 check_pgfault(void) {
-	// char *name = "check_pgfault";
     size_t nr_free_pages_store = nr_free_pages();
 
     check_mm_struct = mm_create();
-
     assert(check_mm_struct != NULL);
+
     struct mm_struct *mm = check_mm_struct;
     pde_t *pgdir = mm->pgdir = boot_pgdir;
     assert(pgdir[0] == 0);
 
     struct vma_struct *vma = vma_create(0, PTSIZE, VM_WRITE);
-
     assert(vma != NULL);
 
     insert_vma_struct(mm, vma);
@@ -288,17 +259,14 @@ check_pgfault(void) {
     assert(sum == 0);
 
     page_remove(pgdir, ROUNDDOWN(addr, PGSIZE));
-
     free_page(pde2page(pgdir[0]));
-
     pgdir[0] = 0;
 
     mm->pgdir = NULL;
     mm_destroy(mm);
-
     check_mm_struct = NULL;
-    nr_free_pages_store--;	// szx : Sv39第二级页表多占了一个内存页，所以执行此操作
 
+    nr_free_pages_store--;	// szx : 适应三级页表
     assert(nr_free_pages_store == nr_free_pages());
 
     cprintf("check_pgfault() succeeded!\n");
@@ -328,7 +296,7 @@ volatile unsigned int pgfault_num=0;
  *            or supervisor mode (0) at the time of the exception.
  */
 int
-do_pgfault(struct mm_struct *mm, uint_t error_code, uintptr_t addr) {
+do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
     int ret = -E_INVAL;
     //try to find a vma which include addr
     struct vma_struct *vma = find_vma(mm, addr);
@@ -348,14 +316,14 @@ do_pgfault(struct mm_struct *mm, uint_t error_code, uintptr_t addr) {
      */
     uint32_t perm = PTE_U;
     if (vma->vm_flags & VM_WRITE) {
-        perm |= (PTE_R | PTE_W);
+        perm |= READ_WRITE;
     }
     addr = ROUNDDOWN(addr, PGSIZE);
 
     ret = -E_NO_MEM;
 
     pte_t *ptep=NULL;
-    /*LAB3 EXERCISE 1: YOUR CODE`
+    /*LAB3 EXERCISE 1: YOUR CODE
     * Maybe you want help comment, BELOW comments can help you finish the code
     *
     * Some Useful MACROs and DEFINEs, you can use them in below implementation.
@@ -372,52 +340,36 @@ do_pgfault(struct mm_struct *mm, uint_t error_code, uintptr_t addr) {
     *   mm->pgdir : the PDT of these vma
     *
     */
-
-    /*LAB3 EXERCISE 1: YOUR CODE*/
-    ptep = get_pte(mm->pgdir, addr, 1);  //(1) try to find a pte, if pte's
-                                         //PT(Page Table) isn't existed, then
-                                         //create a PT.
-    if (*ptep == 0) {
+    // try to find a pte, if pte's PT(Page Table) isn't existed, then create a PT.
+    // (notice the 3th parameter '1')
+    if ((ptep = get_pte(mm->pgdir, addr, 1)) == NULL) {
+        cprintf("get_pte in do_pgfault failed\n");
+        goto failed;
+    }
+    
+    if (*ptep == 0) { // if the phy addr isn't exist, then alloc a page & map the phy addr with logical addr
         if (pgdir_alloc_page(mm->pgdir, addr, perm) == NULL) {
             cprintf("pgdir_alloc_page in do_pgfault failed\n");
             goto failed;
         }
-    } else {
-        /*LAB3 EXERCISE 2: YOUR CODE
-        * Now we think this pte is a  swap entry, we should load data from disk
-        * to a page with phy addr,
-        * and map the phy addr with logical addr, trigger swap manager to record
-        * the access situation of this page.
-        *
-        *  Some Useful MACROs and DEFINEs, you can use them in below
-        * implementation.
-        *  MACROs or Functions:
-        *    swap_in(mm, addr, &page) : alloc a memory page, then according to
-        * the swap entry in PTE for addr,
-        *                               find the addr of disk page, read the
-        * content of disk page into this memroy page
-        *    page_insert ： build the map of phy addr of an Page with the linear
-        * addr la
-        *    swap_map_swappable ： set the page swappable
-        */
-        if (swap_init_ok) {
-            struct Page *page = NULL;
-            swap_in(mm, addr, &page);  //(1）According to the mm AND addr, try
-                                       //to load the content of right disk page
-                                       //    into the memory which page managed.
-            page_insert(mm->pgdir, page, addr, perm);  //(2) According to the mm,
-                                                   //addr AND page, setup the
-                                                   //map of phy addr <--->
-                                                   //logical addr
-            swap_map_swappable(mm, addr, page,
-                               1);  //(3) make the page swappable.
+    }
+    else { // if this pte is a swap entry, then load data from disk to a page with phy addr
+           // and call page_insert to map the phy addr with logical addr
+        if(swap_init_ok) {
+            struct Page *page=NULL;
+            if ((ret = swap_in(mm, addr, &page)) != 0) {
+                cprintf("swap_in in do_pgfault failed\n");
+                goto failed;
+            }    
+            page_insert(mm->pgdir, page, addr, perm);
+            swap_map_swappable(mm, addr, page, 1);
             page->pra_vaddr = addr;
-        } else {
-            cprintf("no swap_init_ok but ptep is %x, failed\n", *ptep);
+        }
+        else {
+            cprintf("no swap_init_ok but ptep is %x, failed\n",*ptep);
             goto failed;
         }
    }
-
    ret = 0;
 failed:
     return ret;

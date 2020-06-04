@@ -2,6 +2,7 @@
 #include <defs.h>
 #include <fs.h>
 #include <ide.h>
+#include <picirq.h>
 #include <stdio.h>
 #include <string.h>
 #include <trap.h>
