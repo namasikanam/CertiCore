@@ -117,11 +117,11 @@ default_nr_free_pages(void) {
 // the basic_check, sigh.
 static void
 basic_check(void) {
-    size_t p0, p1, p2;
-    p0 = p1 = p2 = NULLPAGE;
-    assert((p0 = alloc_page()) != NULLPAGE);
-    assert((p1 = alloc_page()) != NULLPAGE);
-    assert((p2 = alloc_page()) != NULLPAGE);
+    struct Page* p0, *p1, *p2;
+    p0 = p1 = p2 = NULL;
+    assert((p0 = alloc_page()) != NULL);
+    assert((p1 = alloc_page()) != NULL);
+    assert((p2 = alloc_page()) != NULL);
 
     assert(p0 != p1 && p0 != p2 && p1 != p2);
 

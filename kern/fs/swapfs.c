@@ -17,11 +17,11 @@ swapfs_init(void) {
 
 int
 swapfs_read(swap_entry_t entry, struct Page *page) {
-    return ide_read_secs(SWAP_DEV_NO, swap_offset(entry) * PAGE_NSECT, page2kva(page - pages), PAGE_NSECT);
+    return ide_read_secs(SWAP_DEV_NO, swap_offset(entry) * PAGE_NSECT, page2kva(page), PAGE_NSECT);
 }
 
 int
 swapfs_write(swap_entry_t entry, struct Page *page) {
-    return ide_write_secs(SWAP_DEV_NO, swap_offset(entry) * PAGE_NSECT, page2kva(page - pages), PAGE_NSECT);
+    return ide_write_secs(SWAP_DEV_NO, swap_offset(entry) * PAGE_NSECT, page2kva(page), PAGE_NSECT);
 }
 
