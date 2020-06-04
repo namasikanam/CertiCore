@@ -22,6 +22,9 @@ static const char * const error_string[MAXERROR + 1] = {
     [E_NO_MEM]              "out of memory",
     [E_NO_FREE_PROC]        "out of processes",
     [E_FAULT]               "segmentation fault",
+    [E_INVAL_ELF]           "invalid elf file",
+    [E_KILLED]              "process is killed",
+    [E_PANIC]               "panic failure",
 };
 
 /* *
@@ -49,6 +52,12 @@ printnum(void (*putch)(int, void*), void *putdat,
     }
     // then print this (the least significant) digit
     putch("0123456789abcdef"[mod], putdat);
+
+    // Crashes if num >= base. No idea what going on here
+    // Here is a quick fix
+    // update: Stack grows downward and destory the SBI
+    // sbi_console_putchar("0123456789abcdef"[mod]);
+    // (*(int *)putdat)++;
 }
 
 /* *

@@ -6,6 +6,8 @@
 #include <memlayout.h>
 #include <pmm.h>
 #include <mmu.h>
+#include <default_pmm.h>
+#include <kdebug.h>
 
 // the valid vaddr for check is between 0~CHECK_VALID_VADDR-1
 #define CHECK_VALID_VIR_PAGE_NUM 5
@@ -37,6 +39,7 @@ swap_init(void)
         max_swap_offset < MAX_SWAP_OFFSET_LIMIT)) {
         panic("bad max_swap_offset %08x.\n", max_swap_offset);
      }
+
 
      sm = &swap_manager_fifo;
      int r = sm->init();
@@ -239,6 +242,7 @@ check_swap(void)
      //free_page(pte2page(*temp_ptep));
      
      mm_destroy(mm);
+     check_mm_struct = NULL;
          
      total == nr_free_pages();
      cprintf("total is %d\n",total);

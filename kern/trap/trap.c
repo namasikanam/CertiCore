@@ -1,29 +1,35 @@
-#include <assert.h>
-#include <clock.h>
-#include <console.h>
 #include <defs.h>
-#include <kdebug.h>
-#include <memlayout.h>
 #include <mmu.h>
-#include <stdio.h>
-#include <swap.h>
+#include <memlayout.h>
+#include <clock.h>
 #include <trap.h>
-#include <vmm.h>
 #include <riscv.h>
+#include <stdio.h>
+#include <assert.h>
+#include <console.h>
+#include <vmm.h>
+#include <swap.h>
+#include <kdebug.h>
+#include <unistd.h>
+#include <syscall.h>
+#include <error.h>
+#include <sched.h>
+#include <sync.h>
+#include <sbi.h>
 
 #define TICK_NUM 100
 
 static void print_ticks() {
-    cprintf("%d ticks\n", TICK_NUM);
+    cprintf("%d ticks\n",TICK_NUM);
 #ifdef DEBUG_GRADE
     cprintf("End of Test.\n");
     panic("EOT: kernel seems ok.");
 #endif
 }
 
-/* idt_init - initialize IDT to each of the entry points in kern/trap/vectors.S
- */
-void idt_init(void) {
+/* idt_init - initialize IDT to each of the entry points in kern/trap/vectors.S */
+void
+idt_init(void) {
     extern void __alltraps(void);
     /* Set sscratch register to 0, indicating to exception vector that we are
      * presently executing in the kernel */
@@ -40,16 +46,17 @@ bool trap_in_kernel(struct trapframe *tf) {
     return (tf->status & SSTATUS_SPP) != 0;
 }
 
-void print_trapframe(struct trapframe *tf) {
+void
+print_trapframe(struct trapframe *tf) {
     cprintf("trapframe at %p\n", tf);
     print_regs(&tf->gpr);
     cprintf("  status   0x%08x\n", tf->status);
     cprintf("  epc      0x%08x\n", tf->epc);
-    cprintf("  badvaddr 0x%08x\n", tf->badvaddr);
+    cprintf("  tval 0x%08x\n", tf->tval);
     cprintf("  cause    0x%08x\n", tf->cause);
 }
 
-void print_regs(struct pushregs *gpr) {
+void print_regs(struct pushregs* gpr) {
     cprintf("  zero     0x%08x\n", gpr->zero);
     cprintf("  ra       0x%08x\n", gpr->ra);
     cprintf("  sp       0x%08x\n", gpr->sp);
@@ -85,18 +92,31 @@ void print_regs(struct pushregs *gpr) {
 }
 
 static inline void print_pgfault(struct trapframe *tf) {
-    cprintf("page falut at 0x%08x: %c/%c\n", tf->badvaddr,
+    cprintf("page falut at 0x%08x: %c/%c\n", tf->tval,
             trap_in_kernel(tf) ? 'K' : 'U',
             tf->cause == CAUSE_STORE_PAGE_FAULT ? 'W' : 'R');
 }
 
-static int pgfault_handler(struct trapframe *tf) {
+static int
+pgfault_handler(struct trapframe *tf) {
     extern struct mm_struct *check_mm_struct;
+    if(check_mm_struct !=NULL) { //used for test check_swap
     print_pgfault(tf);
+        }
+    struct mm_struct *mm;
     if (check_mm_struct != NULL) {
-        return do_pgfault(check_mm_struct, tf->cause, tf->badvaddr);
+        assert(current == idleproc);
+        mm = check_mm_struct;
     }
+    else {
+        if (current == NULL) {
+            print_trapframe(tf);
+            print_pgfault(tf);
     panic("unhandled page fault.\n");
+}
+        mm = current->mm;
+    }
+    return do_pgfault(mm, tf->cause, tf->tval);
 }
 
 static volatile int in_swap_tick_event = 0;
@@ -127,8 +147,9 @@ void interrupt_handler(struct trapframe *tf) {
             // directly.
             // clear_csr(sip, SIP_STIP);
             clock_set_next_event();
-            if (++ticks % TICK_NUM == 0) {
-                print_ticks();
+            if (++ticks % TICK_NUM == 0 && current) {
+                // print_ticks();
+                current->need_resched = 1;
             }
             break;
         case IRQ_H_TIMER:
@@ -169,6 +190,10 @@ void exception_handler(struct trapframe *tf) {
             break;
         case CAUSE_BREAKPOINT:
             cprintf("Breakpoint\n");
+            if(tf->gpr.a7 == 10){
+                tf->epc += 4;
+                syscall(); 
+            }
             break;
         case CAUSE_MISALIGNED_LOAD:
             cprintf("Load address misaligned\n");
@@ -181,7 +206,7 @@ void exception_handler(struct trapframe *tf) {
             }
             break;
         case CAUSE_MISALIGNED_STORE:
-            cprintf("AMO address misaligned\n");
+            panic("AMO address misaligned\n");
             break;
         case CAUSE_STORE_ACCESS:
             cprintf("Store/AMO access fault\n");
@@ -191,10 +216,14 @@ void exception_handler(struct trapframe *tf) {
             }
             break;
         case CAUSE_USER_ECALL:
-            cprintf("Environment call from U-mode\n");
+            //cprintf("Environment call from U-mode\n");
+            tf->epc += 4;
+            syscall();
             break;
         case CAUSE_SUPERVISOR_ECALL:
             cprintf("Environment call from S-mode\n");
+            tf->epc += 4;
+            syscall();
             break;
         case CAUSE_HYPERVISOR_ECALL:
             cprintf("Environment call from H-mode\n");
@@ -225,14 +254,7 @@ void exception_handler(struct trapframe *tf) {
     }
 }
 
-/* *
- * trap - handles or dispatches an exception/interrupt. if and when trap()
- * returns,
- * the code in kern/trap/trapentry.S restores the old CPU state saved in the
- * trapframe and then uses the iret instruction to return from the exception.
- * */
-void trap(struct trapframe *tf) {
-    // dispatch based on what type of trap occurred
+static inline void trap_dispatch(struct trapframe* tf) {
     if ((intptr_t)tf->cause < 0) {
         // interrupts
         interrupt_handler(tf);
@@ -241,3 +263,36 @@ void trap(struct trapframe *tf) {
         exception_handler(tf);
     }
 }
+
+/* *
+ * trap - handles or dispatches an exception/interrupt. if and when trap() returns,
+ * the code in kern/trap/trapentry.S restores the old CPU state saved in the
+ * trapframe and then uses the iret instruction to return from the exception.
+ * */
+void
+trap(struct trapframe *tf) {
+    // dispatch based on what type of trap occurred
+//    cputs("some trap");
+    if (current == NULL) {
+        trap_dispatch(tf);
+    } else {
+        struct trapframe *otf = current->tf;
+        current->tf = tf;
+
+        bool in_kernel = trap_in_kernel(tf);
+
+        trap_dispatch(tf);
+
+        current->tf = otf;
+        if (!in_kernel) {
+            if (current->flags & PF_EXITING) {
+                do_exit(-E_KILLED);
+            }
+            if (current->need_resched) {
+                schedule();
+            }
+        }
+    }
+}
+
+

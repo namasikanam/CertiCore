@@ -10,5 +10,7 @@ void kmalloc_init(void);
 void *kmalloc(size_t n);
 void kfree(void *objp);
 
+size_t kallocated(void);
+
 #endif /* !__KERN_MM_KMALLOC_H__ */
 
