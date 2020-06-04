@@ -25,6 +25,7 @@ main(void) {
     cprintf("I am the parent, waiting now..\n");
 
     assert(waitpid(pid, &code) == 0 && code == magic);
+    cprintf("I am the parent, between..\n");
     assert(waitpid(pid, &code) != 0 && wait() != 0);
     cprintf("waitpid %d ok.\n", pid);
 

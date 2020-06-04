@@ -280,13 +280,22 @@ TARGETS: $(TARGETS)
 
 .DEFAULT_GOAL := TARGETS
 
-.PHONY: qemu spike
-qemu: $(UCOREIMG) $(SWAPIMG) $(SFSIMG)
+.PHONY: qemu spike debug
+qemu: $(UCOREIMG)
 	$(V)$(QEMU) \
 		-machine virt \
 		-nographic \
 		-bios default \
 		-device loader,file=$(UCOREIMG),addr=0x80200000
+
+debug: 
+	$(V)$(QEMU) -S -s\
+		-machine virt \
+		-nographic \
+		-bios default \
+		-device loader,file=$(UCOREIMG),addr=0x80200000 &
+	$(V)sleep 2
+	$(V)xterm -e "cgdb -q -x tools/gdbinit"
 
 spike: $(UCOREIMG)
 	$(V)$(SPIKE) $(UCOREIMG)
