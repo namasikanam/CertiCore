@@ -48,17 +48,20 @@
     (&& (! (impl-page-allocated? pageno))
         (! (impl-page-reserved? pageno))))
 
-  (define (bv-length l)
+  (define (bvcount f l)
     (cond
       [(null? l) (bv64 0)]
-      [else (bvadd (bv64 1) (bv-length (cdr l)))]))
+      [else (let ([cnt (bvcount f (cdr l))])
+              (if (f (car l))
+                (bvadd1 cnt)
+                cnt))
+            ]))
 
   (&&
     (bvule nr_free (bv64 constant:NPAGE))
 
-    ; TODO: have no idea yet
-    ; why the following invariant still doesn't work...
-    ; (eq?
-    ;   nr_free
-    ;   (bv-length (filter impl-page-available? all-pages))))
+    ; We cannot use filter here, *sigh*
+     (bveq
+       nr_free
+       (bvcount impl-page-available? all-pages)))
 )
