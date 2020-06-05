@@ -19,6 +19,11 @@
          (lambda (pageno)
            (mblock-iload block-pagedb (list pageno 'flags)))))
 
+(define all-pages
+  (map
+    (lambda (pageno-int) (bv pageno-int 64))
+    (range constant:NPAGE)))
+
 (define (mregions-invariants mregions)
   (define block-pagedb (find-block-by-name mregions 'pages))
 
@@ -43,38 +48,17 @@
     (&& (! (impl-page-allocated? pageno))
         (! (impl-page-reserved? pageno))))
 
-  ; two pages
-  (define-symbolic pgi pgj (bitvector 64))
-
-  ; does [x1, y1) and [x2, y2) overlap?
-  (define (overlap? x1 y1 x2 y2)
-    (|| (bvult x2 y1)
-        (bvult x1 y2)))
+  (define (bv-length l)
+    (cond
+      [(null? l) (bv64 0)]
+      [else (bvadd (bv64 1) (bv-length (cdr l)))]))
 
   (&&
-    (bvule nr_free (bv constant:NPAGE 64))
+    (bvule nr_free (bv64 constant:NPAGE))
 
-    ; An invariant to characterize nr_free
-    ; i don't know why it doesn't work
-    ;(eq?
-    ;  (bitvector->integer nr_free)
-    ;  (length (filter impl-page-available? all-pages)))
-
-    ;length is non-negative
-    ;(forall (list pgi)
-            ;(=> (impl-is-head? pgi)
-                ;(bvult (bv 0 64) (pageno->pagedb.property pgi))))
-     ;non-overlapping
-    ;(forall (list pgi pgj)
-            ;(=> (&& (impl-is-head? pgi)
-                    ;(impl-is-head? pgj))
-                ;(! (overlap? pgi (bvadd pgi 
-                                        ;(pageno->pagedb.property pgi))
-                             ;pgj (bvadd pgj 
-                                        ;(pageno->pagedb.property pgj))))))
-  ))
-
-(define all-pages
-  (map
-    (lambda (pageno-int) (bv pageno-int 64))
-    (range constant:NPAGE)))
+    ; TODO: have no idea yet
+    ; why the following invariant still doesn't work...
+    ; (eq?
+    ;   nr_free
+    ;   (bv-length (filter impl-page-available? all-pages))))
+)
