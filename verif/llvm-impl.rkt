@@ -48,20 +48,11 @@
     (&& (! (impl-page-allocated? pageno))
         (! (impl-page-reserved? pageno))))
 
-  (define (bvcount f l)
-    (cond
-      [(null? l) (bv64 0)]
-      [else (let ([cnt (bvcount f (cdr l))])
-              (if (f (car l))
-                (bvadd1 cnt)
-                cnt))
-            ]))
-
   (&&
     (bvule nr_free (bv64 constant:NPAGE))
 
     ; We cannot use filter here, *sigh*
-     (bveq
-       nr_free
-       (bvcount impl-page-available? all-pages)))
-)
+     ;(bveq
+       ;nr_free
+       ;(bvcount impl-page-available? all-pages))
+))
