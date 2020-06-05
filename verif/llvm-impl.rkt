@@ -47,11 +47,6 @@
     (&& (! (impl-page-allocated? pageno))
         (! (impl-page-reserved? pageno))))
 
-  (define (bv-length l)
-    (cond
-      [(null? l) (bv64 0)]
-      [else (bvadd (bv64 1) (bv-length (cdr l)))]))
-
   (&&
     ; This helps nothing for refinement!
     ; (bvule nr_free (bv64 constant:NPAGE))

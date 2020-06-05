@@ -237,6 +237,32 @@
 (define (spec-default_nr_free_pages s)
   (set-return! s (state-nrfree s)))
 
+; === some safety property
+
+(define (bvcount f l)
+  (cond
+    [(null? l) (bv64 0)]
+    [else (let ([cnt (bvcount f (cdr l))])
+            (if (f (car l))
+              (bvadd1 cnt)
+              cnt))]))
+
+(define (nr_free_eq st)
+  (define pages
+    (map bv64 (range constant:NPAGE)))
+  (bveq (bvcount (lambda (idx) (page-available? st idx)) pages)
+        (state-nrfree st)))
+
+(define (verify_nr_free_preservation spec args)
+  (define st (make-havoc-state))
+  (define pre (nr_free_eq st))
+  (check-sat? (solve (assert pre)))
+  (clear-asserts!)
+  (apply spec st args)
+  (check-equal? (asserts) null)
+  (define post (nr_free_eq st))
+  (check-unsat? (verify (assert (=> pre post)))))
+
 (define spec-tests
   (test-suite+
   "tests for specification functions with concrete values"

@@ -62,18 +62,24 @@
 
 (define llvm-tests
   (test-suite+ "LLVM tests"
-    ; (test-case+ "magic LLVM"
-    ;   (verify-llvm-refinement spec-magic implementation:@verify_magic))
-    ; (test-case+ "default_init LLVM"
-    ;   (verify-llvm-refinement spec-default_init implementation:@default_init))
-    ; (test-case+ "default_init_memmap LLVM"
-    ;  (verify-llvm-refinement spec-default_init_memmap implementation:@default_init_memmap (list (make-bv64) (make-bv64))))
+    (test-case+ "magic LLVM"
+      (verify-llvm-refinement spec-magic implementation:@verify_magic))
+    (test-case+ "default_init LLVM"
+      (verify-llvm-refinement spec-default_init implementation:@default_init))
+    (test-case+ "default_init_memmap LLVM"
+     (verify-llvm-refinement spec-default_init_memmap implementation:@default_init_memmap (list (make-bv64) (make-bv64))))
     (test-case+ "default_alloc_pages LLVM"
       (verify-llvm-refinement spec-default_alloc_pages implementation:@default_alloc_pages (list (make-bv64))))
-    ; (test-case+ "default_free_pages LLVM"
-    ;   (verify-llvm-refinement spec-default_free_pages implementation:@default_free_pages (list (make-bv64) (make-bv64))))
-    ; (test-case+ "default_nr_free_pages LLVM"
-    ;   (verify-llvm-refinement spec-default_nr_free_pages implementation:@default_nr_free_pages (list)))
+    (test-case+ "default_free_pages LLVM"
+      (verify-llvm-refinement spec-default_free_pages implementation:@default_free_pages (list (make-bv64) (make-bv64))))
+    (test-case+ "default_nr_free_pages LLVM"
+      (verify-llvm-refinement spec-default_nr_free_pages implementation:@default_nr_free_pages (list)))
+    (test-case+ "step-consistency spec-default_free_pages LLVM"
+      (verify-step-consistency spec-default_free_pages (list (make-bv64) (make-bv64))))
+    (test-case+ "nr_free_preservation spec-default_alloc_pages LLVM"
+      (verify_nr_free_preservation spec-default_alloc_pages (list (make-bv64))))
+    (test-case+ "nr_free_preservation spec-default_init_memmap LLVM"
+      (verify_nr_free_preservation spec-default_init_memmap (list (make-bv64) (make-bv64))))
 ))
 
 (module+ test
