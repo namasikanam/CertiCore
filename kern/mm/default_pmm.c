@@ -40,8 +40,6 @@ default_init_memmap(size_t base, size_t n) {
             if (PageAllocated(p))
                 return 6;
 
-    if (!(nr_free + n <= NPAGE)) return 7;
-
 #if defined(__clang__) && defined(IS_VERIF)
     #pragma clang loop unroll(full)
 #endif
@@ -56,7 +54,7 @@ default_init_memmap(size_t base, size_t n) {
 static size_t
 default_alloc_pages(size_t n) {
     if (!(n > 0)) return NULLPAGE;
-    if (n > nr_free) return NULLPAGE;
+    if (!(n <= NPAGE)) return NULLPAGE;
 
     size_t page = NULLPAGE;
     size_t first_usable = 0;
@@ -91,13 +89,6 @@ default_free_pages(size_t base, size_t n) {
     if (n == 0) return;
     if (n > NPAGE) return;
     if (base + n > NPAGE) return;
-
-    // TODO: perhaps we could use a more reasonable check here,
-    // that is, pages to free are all allocated.
-    // If this is checked, with the help of the invariants,
-    // that nr_free == [number of available pages],
-    // the following requirement can be deduced.
-    if (n > NPAGE - nr_free) return;
 
 #if defined(__clang__) && defined(IS_VERIF)
     #pragma clang loop unroll(full)

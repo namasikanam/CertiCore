@@ -78,7 +78,7 @@
 (define (set-return! s val)
   (set-state-regs! s (struct-copy regs (state-regs s) [a0 val])))
 
-; ==== Function Updater =====
+; ==== Function Updater ====
 
 (define (update-func func pred value-func)
   (lambda args (if (apply pred args) (value-func (apply func args)) (apply func args))))
@@ -141,7 +141,6 @@
       [(! (bvule (bvadd base num) (bv64 constant:NPAGE))) (bv64 4)]
       [(! (page-valid-flag? s base num constant:PG_RESERVED)) (bv64 5)]
       [(page-sat-flag? s base num constant:PG_ALLOCATED) (bv64 6)]
-      [(! (bvule (bvadd (state-nrfree s) num) (bv64 constant:NPAGE))) (bv64 7)]
       [else
         (page-clear-flag-func!
           s
@@ -178,7 +177,7 @@
   (define val
     (cond
       [(! (bvult (bv64 0) num)) (bv64 constant:NULLPAGE)]
-      [(! (bvule num (state-nrfree s))) (bv64 constant:NULLPAGE)]
+      [(! (bvule num (bv64 constant:NPAGE))) (bv64 constant:NULLPAGE)]
       [else
         (begin
           (define freeblk (find-free-pages s num))
@@ -223,8 +222,7 @@
       (! (bvuge base (bv64 constant:NPAGE)))
       (! (bveq num (bv64 0)))
       (! (bvugt num (bv64 constant:NPAGE)))
-      (! (bvugt (bvadd base num) (bv64 constant:NPAGE)))
-      (! (bvugt num (bvsub (bv64 constant:NPAGE) (state-nrfree s)))))
+      (! (bvugt (bvadd base num) (bv64 constant:NPAGE))))
     (page-clear-flag-func!
       s
       (lambda (pageno)
@@ -263,10 +261,7 @@
       (check bveq (new-flag (bv64 1)) (bv64 1))
       (check bveq (new-flag (bv64 2)) (bv64 0))
       (check bveq (new-flag (bv64 3)) (bv64 1))
-      (check bveq (new-flag (bv64 4)) (bv64 4))
-    )
-  )
-)
+      (check bveq (new-flag (bv64 4)) (bv64 4)))))
 
 (module+ test
   (time (run-tests spec-tests)))

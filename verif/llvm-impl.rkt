@@ -1,11 +1,10 @@
 #lang rosette/safe
 
 (require
-  "llvm-spec.rkt"
   serval/lib/core
+  "llvm-spec.rkt"
   (prefix-in constant: "generated/asm-offsets.rkt")
-  (only-in racket/list range)
-)
+  (only-in racket/list range))
 
 (provide (all-defined-out))
 
@@ -54,11 +53,6 @@
       [else (bvadd (bv64 1) (bv-length (cdr l)))]))
 
   (&&
-    (bvule nr_free (bv64 constant:NPAGE))
-
-    ; TODO: have no idea yet
-    ; why the following invariant still doesn't work...
-    ; (eq?
-    ;   nr_free
-    ;   (bv-length (filter impl-page-available? all-pages))))
-)
+    ; This helps nothing for refinement!
+    ; (bvule nr_free (bv64 constant:NPAGE))
+))
