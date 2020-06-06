@@ -1,6 +1,6 @@
-# Certicore 实验报告
+# CertiCore 实验报告
 
-Certicore被设计为是教学OS ucore的形式化验证版本。经过半学期的开发，最终实际实现了ucore中中断以及物理页面分配器的验证。
+CertiCore 的初衷是做一个教学 OS ucore 的形式化验证版本。但很快便发现这是一个不切实际的目标，经过半学期的探索，最终实际实现了 ucore 的中断以及页面分配器的验证。
 
 ## 概论
 
@@ -71,6 +71,8 @@ break;
 
 ### 页面分配器
 
+TODO: 这里需要仔细写一下页面分配器的接口
+
 我们的验证是细粒度的，在算法层面验证了ucore的页面分配是first fit的。因此状态空间更大，求解难度也更高。
 
 分配算法的核心代码：
@@ -117,8 +119,73 @@ rosette编写的规范：
 
 值得一提的是，因为分配算法的复杂性，增加pages的大小，会成指数性地增加开销。我们最终是在5页的情况下完成的验证（只在验证时限定为5，实际运行时不是）。
 
+### 验证属性
 
-### 和其他项目相比
+验证属性（safety property），即形式化的的设计意图，用于较为精确地刻画什么样的状态和状态转移函数是符合设计初衷的。但通常来讲，符合设计意图的抽象状态和抽象状态转移函数难以被几条属性而限定，通常我们只能得到“所有符合设计意图的抽象状态和抽象状态转移函数”的一个上近似（over approximation），即我们选取一些重要的符合设计意图的抽象状态和状态转移函数满足的属性，但满足这些属性的抽象状态和状态转移函数也可能并不是符合我们的设计意图的。
+
+这里，我们提出了两条属性来验证。
+
+#### 特征不变式
+
+我们使用了一个全局变量 `nr_free` 来描述空闲页面的数量，我们希望 `nr_free` 可以准确地描述空闲页面的数量，这可以被精确地形式化为 `nr_free` 的特征不变式
+
+$$ \mathrm{nr\_free} == |\{ p \in \mathrm{all\_pages} | \ p \mathrm{\ is\ available} \}|$$
+
+其中，`all_pages` 是数组中所有的页。
+
+#### 不相干性
+
+不相干性（noninterference）是系统验证和安全领域的一个经典属性，最早由 Goguen 和 Meseguer 在 1982 年提出，这里我们使用的不相干性的形式化定义简化自 [Nickle](https://www.usenix.org/system/files/osdi18-sigurbjarnarson.pdf)：
+
+$$\forall tr' \in \mathrm{purge} (tr, \mathrm{dom}(a), s). \mathrm{output} ( \mathrm{run} (s, tr), a) = \mathrm{output}(\mathrm{run}(s, tr'), a)$$
+
+*注：这是一个有类型的公式，每一个变元都有一个约束类型；且此式中的所有自由变元均默认被全称量词约束。*
+
+对于公式中涉及的变元的解释：
+- $a$ 是一个操作（action），即以下四种操作之一：
+  - `default_init_memmap(base, n)`
+  - `default_alloc_pages(n)`
+  - `default_free_pages(base, n)`
+  - `default_nr_free_pages()`
+- $tr$ 和 $tr'$ 是操作序列（trace）
+- $\mathrm{dom}(a)$ 是操作 $a$ 声明会影响的页面，即：
+  - dom(`default_init_memmap(base, n)`) = $\{ p \in \mathrm{all\_pages} \ | \ base \le p < base + n \}$
+  - dom(`default_alloc_pages(n)`) = all_pages
+  - dom(`default_free_pages(base, n)`) = $\{ p \in \mathrm{all\_pages} \ | \ base \le p < base + n \}$
+  - dom(`default_nr_free_pages()`) = $\emptyset$
+- $s$ 是一个完整的抽象状态
+- $\mathrm{purge}(tr, P, s)$ 是在 $tr$ 中删掉若干 $\mathrm{dom}(a) \cap P = \emptyset$ 后得到的所有可能的新序列。
+- $\mathrm{run}(s, tr)$ 是从状态 $s$ 开始顺序执行 $tr$ 中的所有操作之后得到的结果状态。
+- $\mathrm{output}(s, a)$ 是 $s$ 执行操作 $a$ 之后得到的所有 $\text{dom}(a)$ 中的页的状态。
+
+非形式化地说，不相干性在这里是指：对于一个以 $a$ 为末尾操作的操作序列，我们把所有不与 $a$ 影响同一个页面的操作称为无关操作，删掉若干无关操作之后，$a$ 的输出不会改变。
+
+但直接证明不相干性的定义对于 Serval 这种基于符号执行的自动证明框架而言，是极为困难的。为了解决这个问题，一个直接的想法是我们可以引入部分人工证明，直接给出若干定理，使得：
+- 这些定理是方便自动化推导的
+- 这些定理的合取可以推出不相干性（作为已知，不再让符号执行引擎计算）
+
+基于这个思路，我们提出了下面三个定理（参考 Nickle，称作 unwinding conditions）：
+- 首先定义 unwinding （记作$s \stackrel{p}{\approx} t$，其中 $s$ 和 $t$ 是两个状态，$p$ 是一个页面）：$s$ 和 $t$ 中页面 $p$ 的状态是相同的；
+- unwinding is a equivalence relation
+  - reflexivity: $s \stackrel{p}{\approx} s$
+  - symmetry: $s \stackrel{p}{\approx} t \Rightarrow t \stackrel{p}{\approx} s$
+  - transitivity: $r \stackrel{p}{\approx} s \land s \stackrel{p}{\approx} t \Rightarrow r \stackrel{p}{\approx} t$
+- local respect: $p \not\in \text{dom}(a) \Rightarrow s \stackrel{p}{\approx} \text{step}(s, a)$
+- weak step consistency: $s \stackrel{p}{\approx} t \land (\forall q \in \text{dom}(a). s \stackrel{q}{\approx} t) \Rightarrow \text{step}(s, a) \stackrel{p}{\approx} \text{step}(t, a)$
+
+对于公式中变元的补充解释：
+- $\text{step}(s, a)$: 对状态 $s$ 做操作 $a$ 之后得到的状态。
+
+直观地对公式作出解释：
+- 要求 unwinding 是 equivalence relation 是很自然的要求
+- local respect 说的是操作 $a$ 不会影响 $\text{dom}(a)$ 之外的页面
+- weak step consistency 说的是在操作 $a$ 中，$a$ 操作的页面不会被 $\text{dom}(a)$ 之外的页面所影响
+
+解释清楚公式的含义和直观并不是一件容易的事情，对于 noninterference 和 unwinding conditions 更加详尽的解释，建议阅读[Nickle的论文](https://www.usenix.org/system/files/osdi18-sigurbjarnarson.pdf)。
+
+## 与已有工作的对比
+
+TODO: 更加详尽的调研
 
 Serval的示例中有对Certikos和Komodo等OS的验证。这些OS都是微内核，接口非常简单，不涉及复杂的操作。
 
@@ -128,84 +195,8 @@ Serval的示例中有对Certikos和Komodo等OS的验证。这些OS都是微内�
 
 因此，我们认为符号执行的方法只适合于简单的微内核。即使是ucore这样的教学OS，使用这种方法验证都是极其困难的。
 
-## 日志 
+## 对后续工作的建议
 
-###  第十五周 
+## 总结
 
-完成了下述第二条 safety property 的验证。
-
-###  第十四周 
-
-通过使用 statically bounded loop 并让 clang 在编译阶段 unroll，default_free_pages 得以验证。
-
-验证了 pmm_manager 中剩余的其他函数，主要是 default_init_memmap。
-
-但随着页数的增长，验证所需的时间也会爆炸性的增长，目前我们只验证了5页。
-
-按向老师的建议，增加了打印详细的反例的功能。
-
-尝试在精化后的抽象状态机上验证两条 safety property：
-
--  在初始化一段页面时，这一段之外的页面的状态不会被影响。
--  在释放一段页面时，这一段之外的页面的状态不会被影响。
-
-注：Racket本身已经是一门动态语言，Rosette为了验证需要，会将内部的exception理解为assert，导致调试极为困难，调试手段极为有限。
-
-###  第十三周 
-
-重写了 pmm_manager 的物理内存管理部分，使其充分简化，以便于验证。
-
-对 pmm_manager 作 refine，其核心函数时 default_alloc_pages 和 default_free_pages，目前完成了 default_alloc_pages，default_free_pages 会 timeout。
-
-最初怀疑是 performance 的问题。因为 default_alloc_pages 最初也会 timeout，但将抽象函数的实现更改地更适于验证之后，便可以通过验证了，虽然目前我们处理的页数只有 5。符号执行的过程本身就极为缓慢，我们发现实现上微小的改动可能会对运行的效率和结果造成很大的影响，于是便尝试通过修改C和Rosette的函数实现，试图寻找一个易于符号执行、可以通过验证的版本。但大量的尝试并未起到效果，之后再次阅读了论文（[1](https://unsat.cs.washington.edu/papers/nelson-serval.pdf)，[2](https://homes.cs.washington.edu/~emina/pubs/rosette.onward13.pdf)，[3](https://homes.cs.washington.edu/~emina/pubs/rosette.pldi14.pdf)）对于 bounded loop 的原理的解释之后，发现我们之前对于 bounded loop 的理解是有误的，事实上 Rosette 对于 bounded loop 的解决方案就是静态将其展开尽可能多的次数。而我们的实现是“dynamically bounded”，是 Rosette 无法解决的 case。
-
-###  第十二周 
-
-大致了解了 CertiKOS 和 Komodo 的实现代码和验证过程，惊讶地发现它们都是非常“小”的 OS，比 ucore 都要小很多。Komodo 的主体部分是一个三级页表+enclave，CertiKOS 的主体部分是在做进程管理和处理系统调用，页表是在用户态实现的，并没有对其作验证。
-
-另外，发现riscv-ucore的lab2中其实只有一个非常简单的页表，lab2的主要部分其实是物理内存管理（pmm_manager），打算来对这部分建模并验证。
-
-移植了 riscv-ucore lab2，由于 Serval 不支持原子指令，简便起见我们选择了将其裁剪掉。
- 
-添加了 LLVM IR 的编译链，lab2 的部分应当可以完全在 LLVM IR 上处理。
-
-尝试修改 pmm_manager 的已有实现，不再记录 priority，而是单纯地在 page table 上做物理内存页面分配，以让验证过程更加简化。
-
-###  第十一周 
-
-完成了 lab1 中 timer 的验证，之前一直失败的原因是 Serval 不支持 print。
-
-在尝试对 lab2 的页表做验证，尝试学习 CertiKOS 和 Komodo 是如何验证页表的，CertiKOS 的做法非常独特，感觉很难借鉴；Komodo 用的似乎是一个比较正常的页表，但还没有看懂它是怎么做的。
-
-###  第十周 
-更改Serval，为其RISCV验证模块加入了对S态软件的支持。Fork版本在[这里](https://github.com/linusboyle/serval)。
-
-修改RISCV版本的ucore，使得其适合进行验证。
-
-对lab1版本的ucore尝试进行了验证。
-
-###  第九周 
-阅读[toy monitor](https://github.com/uw-unsat/serval-tutorial-sosp19)的源代码，并对前两周 Rosette 和 Toy Monitor 的学习做了分享。
-
-将 Toy Monitor 的 OS 替换为[lab1-minimal](https://github.com/ring00/bbl-ucore/tree/priv-1.10/lab1-minimal)，可以通过验证，但在QEMU上模拟时遇到了错误。
-
-###  第七、八周 
-参照[rosette guide](https://docs.racket-lang.org/rosette-guide/index.html)进行了学习，掌握了Rosette语言基本的原理和使用方法。
-
-按照Serval提供的[教程](https://github.com/uw-unsat/serval-tutorial-sosp19)，确定了使用Serval框架验证一个小型操作系统的步骤和方法。
-
-尝试将教程中的 Toy Security Monitor 从 RISCV 迁移到 x32，但遇到了一些困难。
-
-###  第六周 
-阅读Serval论文，复现Serval实验，经过讨论后确定了具体选题。
-
-###  第五周 
-在戴臻洋学长的建议下，调研了[Xi Wang](https://homes.cs.washington.edu/~xi/)近期的工作，初步调研之后认为可以在''Scaling symbolic valuation for automated verification of systems code with Serval''的基础上展开进一步的工作。论文中声称其框架（[Serval](https://unsat.cs.washington.edu/projects/serval/)）只用了1244行Rosette，写一个LLVM verifier只用了789行Rosette，"This shows that verifiers built using Serval are simple to write, understand, and optimize"。看来属于相当轻量级的验证，工作量应该是比较适合课程设计。
-
-目前来看，我们或许可以做的工作有：
-
- * 复现：Serval framework, RISC-V verifier, x86-32 verifier, LLVM verifier, BPF verifier, verify CertiKOS, verify Komodo
- * 新的verifier：x86-64 verifier, JVM verifier, [TVM](https://tvm.apache.org/) verifier, ...
- * 新的Verification: ucore, rcore, [CompCert](http://compcert.inria.fr/), [Kami](http://adam.chlipala.net/papers/KamiICFP17/), ...
-
-更进一步的细化方案还有待更进一步的了解。
+### 现有工作的缺陷
