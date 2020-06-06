@@ -1,49 +1,44 @@
 # CertiCore 实验报告
 
-CertiCore 的初衷是做一个教学 OS ucore 的形式化验证版本。但很快便发现这是一个不切实际的目标，经过半学期的探索，最终实际实现了 ucore 的中断以及页面分配器的验证。
+CertiCore 的初衷是做教学操作系统 ucore 的形式化验证版本，但很快便发现这是一个不切实际的目标。经过半学期的探索，最终实际实现了 ucore 的中断以及页面分配器的验证。但这也并不是一个简单的目标，据我们所知，这是第一个被自动化验证的页面分配器。
 
-## 概论
+## 背景与验证原理
 
 ### 形式化验证
 
-使用形式化验证的技术，对OS进行验证已有很长的一段历史。目前主要有三种验证的技术：
+使用形式化验证的技术对 OS 进行验证已有很长的一段历史。目前主要有三种验证的技术：
 
-1.交互式定理证明。这种方法使用定理证明器(Proof Assistant)如Coq辅助验证，本质上是手动证明，利用证明器的特性可以实现一部分自动化。这种方法要求在形式系统内进行演绎，难度很高。典型的系统包括seL4和CertiKOS。
- 
-2.使用程序标注辅助证明。通过在程序中显式地插入约束、不变量等，利用证明器自动将其转化为约束求解问题进行求解。这种方式的自动化程度更高，但是手动标注依旧很困难。典型的系统如Komodo。
- 
-3.完全自动化的求解。这种方式期望验证者集中在编写实现接口、规范上，证明器将通过符号执行过程，自动生成约束，问题最终将被转化为可满足性的判定问题。这种方式简单，但是对实现有一些限制，如要求方法必须是有限的。典型的系统是HyperKernel。
+1. 交互式定理证明。这种方法使用定理证明器(Proof Assistant)如 Coq 辅助验证，本质上是手动证明，利用证明器的特性可以实现一部分自动化。这种方法要求在形式系统内进行演绎，难度很高。典型的系统包括 seL4 和 CertiKOS。
+2. 使用程序标注辅助证明。通过在程序中显式地插入约束、不变量等，利用证明器自动将其转化为约束求解问题进行求解。这种方式的自动化程度更高，但是手动标注依旧很困难。典型的系统如 Komodo。
+3. 完全自动化的求解。这种方式期望验证者集中在编写实现接口、规范上，证明器将通过符号执行过程，自动生成约束，问题最终将被转化为可满足性的判定问题。这种方式简单，但是对实现有一些限制，如要求方法必须是有限的。典型的系统是 HyperKernel。
 
-Xi Wang等人按照符号执行的思想，开发了Serval框架。此框架实现了状态机精化，符号执行优化等过程，大大简化了系统验证的开销。我们在此框架的基础上，完成对ucore的验证。
+Xi Wang 等人按照符号执行的思想，开发了Serval框架。此框架实现了状态机精化，符号执行优化等过程，大大简化了系统验证的开销。我们的工作便是在此框架的基础上开展的。
 
-### 工具：Rosette与Serval
+### 工具：Rosette 与 Serval
 
-Rosette是基于Racket的符号执行引擎。其主要优点是可以在同一个语言框架内完成实现和规范的符号执行。其能力也许不及专用符号执行引擎强大，但是是一种通用符号执行工具。
+Rosette 是基于 Racket 的一门面向验证设计的语言，其主要优点是可以在同一个语言框架内完成实现和规范的符号执行。其能力也许不及专用符号执行引擎强大，但是是一种通用符号执行工具。虽然一阶谓词逻辑的可满足性是不可判定的，但是 Rosette 实现的是其中可判定的子集。因此，编写程序规范时，需要一部分技巧来规避表达力不足的问题。
 
-Serval基于Rosette语言实现，Rosette本身已经提供了一部分符号执行特性。虽然一阶谓词逻辑的可满足性是不可判定的，但是Rosette实现的是其中可判定的子集。因此，编写程序规范时，需要一部分技巧来规避表达力不足的问题。
+Serval 在此基础上提供了更高级的特性。使用 Serval 验证系统的基本思路是：
 
-Serval在此基础上提供了更高级的特性。使用Serval验证系统的基本思路是：
+1. 使用Rosette编写一个automated verifier, 将系统的实现代码（如汇编，LLVM IR等）转换为符号执行
+2. 使用Rosette编写程序规范
 
-1.使用Rosette编写一个automated verifier, 将系统的实现代码（如汇编，LLVM IR等）转换为符号执行
+Serval 会使用 Rosette 生成 SMT 约束，并在此过程中自动进行优化。验证者无需关心验证的过程，只需专注在程序接口和规范的编写。
 
-2.使用Rosette编写程序规范
+### 抽象与精化
 
-Serval会使用Rosette生成SMT约束，并在此过程中自动进行优化。验证者无需关心验证的过程，只需专注在程序接口和规范的编写。
+Serval 提供了准确的状态机精化支持。在 Serval 中，规范由四部份组成，都在 Rosette 中编写：
 
-### 抽象、精化
+1. 程序的抽象状态 $s$
+2. 程序的预期运行行 $f_{spec}$
+3. 一个将程序具体状态映射到抽象状态的 abstract function（AF）
+4. 程序执行中的不变式 representation invariant (RI)
 
-Serval提供了准确的状态机精化支持。在Serval中，规范由四部份组成，都在Rosette中编写：
+精化通过后，我们就可以为抽象状态验证一些安全属性（safety property）。
 
-1.程序的抽象状态s
-2.程序的预期运行行fspec
-3.一个将程序具体状态映射到抽象状态的abstract function（AF）
-4.程序执行前后的不变量RI
+比如，欲验证不相干性（noninterference），我们只需考虑抽象状态的转移。Serval 提供了一些内置方法刻画常见的程序属性，为了验证不相干性，经典的做法是验证 local respect 和 weak step consistency，Serval 中便提供了这两个属性的验证函数，具体的细节请看下面安全属性一节。
 
-精化通过后，我们就可以用抽象状态编写更多的规范。
-
-比如，欲验证状态的转移与某变量无关(noninterference)，为此，我们只需考虑抽象状态的转移。Serval提供了大量的内置方法刻画常见的程序属性，在这个例子中，可以使用其提供的step consistency属性。我们只需要在状态空间上定义一个二元谓词∼描述状态间的等价关系。在我们的验证过程中，就利用了这一方法。
-
-## 验证
+## 我们所作的验证
 
 ### Timer
 
@@ -51,27 +46,27 @@ Serval提供了准确的状态机精化支持。在Serval中，规范由四部�
 
 ```c
 case IRQ_S_TIMER:
-clock_set_next_event();
-if (++ticks % TICK_NUM == 0) {
-print_ticks();
-}
-break;
+    clock_set_next_event();
+    if (++ticks % TICK_NUM == 0) {
+        print_ticks();
+    }
+  break;
 ```
 
-我们验证了其正确性。在抽象状态中，只有一个ticks变量：
+我们验证了其正确性。在抽象状态中，只有一个 `ticks` 变量：
 
-```racket
+```lisp
 (struct state (tick)
-#:transparent
-#:mutable)
+  #:transparent
+  #:mutable)
 (define (intrp-timer st)
-(set-state-tick! st
-(bvadd (state-tick st) (bv 1 64))))
+  (set-state-tick! st
+  (bvadd (state-tick st) (bv 1 64))))
 ```
 
 ### 页面分配器
 
-TODO: 这里需要仔细写一下页面分配器的接口
+TODO: 这里也许需要仔细写一下页面分配器的接口
 
 我们的验证是细粒度的，在算法层面验证了ucore的页面分配是first fit的。因此状态空间更大，求解难度也更高。
 
@@ -79,34 +74,33 @@ TODO: 这里需要仔细写一下页面分配器的接口
 
 ```c
 for (size_t p = 0; p < NPAGE; p ++)
-if (PageReserved(p) || PageAllocated(p)) {
-first_usable = p + 1;
-}
-else {
-if (p - first_usable + 1 == n) {
-page = first_usable;
-break; // found! 'page' is allocated!
-}
-}
+    if (PageReserved(p) || PageAllocated(p)) {
+        first_usable = p + 1;
+    } else {
+        if (p - first_usable + 1 == n) {
+            page = first_usable;
+            break; // found! 'page' is allocated!
+        }
+    }
 ```
 
-我们用函数类型表示pages的元数据，并记录下剩余的空闲页面。我们用lambda表达式g = λx.ite(x = i)v(fx)表示pages数据的更新。
+我们用函数类型表示 `pages` 的元数据，并记录下剩余的空闲页面。我们用 lambda 表达式 $g = λx.ite(x = i)v(fx)$ 表示 `pages` 数据的更新。
 
 rosette编写的规范：
 
-```racket
+```lisp
 (define (find-free-pages s num)
-(define (find-free-accumulate lst acc ans)
-(cond
-[(bveq num acc) ans]
-[(null? lst) #f]
-[(page-available? s (car lst))
-(find-free-accumulate
-(cdr lst) (bvadd1 acc)
-(if (bveq acc (bv 0 64)) (car lst) ans))]
-[else (find-free-accumulate (cdr lst) (bv 0 64)
-(define indexl (map bv64 (range constant:NPAGE)))
-(find-free-accumulate indexl (bv 0 64) (bv 0 64)))
+  (define (find-free-accumulate lst acc ans)
+    (cond
+      [(bveq num acc) ans]
+      [(null? lst) #f]
+      [(page-available? s (car lst))
+        (find-free-accumulate
+        (cdr lst) (bvadd1 acc)
+        (if (bveq acc (bv 0 64)) (car lst) ans))]
+      [else (find-free-accumulate (cdr lst) (bv 0 64))]))
+  (define indexl (map bv64 (range constant:NPAGE)))
+  (find-free-accumulate indexl (bv 0 64) (bv 0 64)))
 ```
 
 因为是递归函数，实际验证比较缓慢。
@@ -117,11 +111,9 @@ rosette编写的规范：
 - 页面释放
 - 查询剩余页面数
 
-值得一提的是，因为分配算法的复杂性，增加pages的大小，会成指数性地增加开销。我们最终是在5页的情况下完成的验证（只在验证时限定为5，实际运行时不是）。
+### 安全属性
 
-### 验证属性
-
-验证属性（safety property），即形式化的的设计意图，用于较为精确地刻画什么样的状态和状态转移函数是符合设计初衷的。但通常来讲，符合设计意图的抽象状态和抽象状态转移函数难以被几条属性而限定，通常我们只能得到“所有符合设计意图的抽象状态和抽象状态转移函数”的一个上近似（over approximation），即我们选取一些重要的符合设计意图的抽象状态和状态转移函数满足的属性，但满足这些属性的抽象状态和状态转移函数也可能并不是符合我们的设计意图的。
+安全属性（safety property），即形式化的的设计意图，用于较为精确地刻画什么样的状态和状态转移函数是安全的、符合设计初衷的。但通常来讲，符合设计意图的抽象状态和抽象状态转移函数难以被几条属性而限定，通常我们只能得到“所有符合设计意图的抽象状态和抽象状态转移函数”的一个上近似（over approximation），即我们选取一些重要的符合设计意图的抽象状态和状态转移函数满足的属性，但满足这些属性的抽象状态和状态转移函数也可能并不是符合我们的设计意图的。
 
 这里，我们提出了两条属性来验证。
 
@@ -187,16 +179,19 @@ $$\forall tr' \in \mathrm{purge} (tr, \mathrm{dom}(a), s). \mathrm{output} ( \ma
 
 TODO: 更加详尽的调研
 
-Serval的示例中有对Certikos和Komodo等OS的验证。这些OS都是微内核，接口非常简单，不涉及复杂的操作。
+Serval的示例中有对 CertiKOS 和 Komodo 等 OS 的验证。这些 OS 都是微内核，接口非常简单，不涉及复杂的操作。
 
-特别的，页面分配在这些项目中都是用户态考虑的。我们直接在ucore宏内核中验证fisrt-fit分配算法的正确性，的确比较困难（开发上，以及开销上）
+特别的，页面分配在这些项目中都是用户态考虑的。我们直接在 ucore 宏内核中验证 Fisrt-Fit 分配算法的正确性，的确比较困难（开发上，以及开销上）
 
 符号执行的特点决定了用这种方法，所能验证的接口必然是受限的。有时我们能用重写的方法规避，有时则完全受限于符号执行的表达力。
 
 因此，我们认为符号执行的方法只适合于简单的微内核。即使是ucore这样的教学OS，使用这种方法验证都是极其困难的。
 
+## 我们的缺陷
+
+值得一提的是，因为分配算法的复杂性，增加pages的大小，会成指数性地增加开销。我们最终是在5页的情况下完成的验证（只在验证时限定为5，实际运行时不是）。
+
 ## 对后续工作的建议
 
 ## 总结
 
-### 现有工作的缺陷
