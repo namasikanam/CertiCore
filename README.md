@@ -1,5 +1,3 @@
-TODO: badge
-
 # CertiCore
 
 CertiCore 是清华大学 2020 年操作系统课的一个挑战性实验项目，初衷是尝试对多年用于本课程教学的操作系统[uCore](https://github.com/chyyuu/ucore_os_lab)作形式化验证。遗憾的是，对于参与本项目的二位本科生而言，uCore 是一个过于庞大的宏内核，最终我们只完成了 uCore 中的一个小小的部件——页面分配器的部分验证工作。
