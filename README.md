@@ -8,9 +8,7 @@ CertiCore 是清华大学 2020 年操作系统课的一个挑战性实验项目�
 
 ## 安装
 
-为了编译本项目，我们需要
-
-* RISC-V gcc toolchain
+CertiCore是基于uCore的riscv版本验证的，为了编译本项目，我们需要RISC-V gcc toolchain
 
 如果你在使用 Linux (Ubuntu) ，你可以通过以下指令安装
 
@@ -41,6 +39,8 @@ $ export PATH=$PWD/riscv32-softmmu:$PWD/riscv64-softmmu:$PATH
 $ sudo sysctl vm.overcommit_memory=1
 ```
 
+如果你是在使用OpenSUSE Tumbleweed，经测试qemu可以直接正常使用。
+
 安装完成后，即可通过以下指令在模拟器中运行内核
 ```bash
 $ make clean
@@ -59,11 +59,16 @@ $ make qemu
 
 ### 验证
 
-为了验证本项目，我们需要
+为了验证本项目，在前面一节内容的基础上，我们需要
 
 * Racket >= 7.4
+* Clang/LLVM >= 8
 
-另外，我们需要改进版的 [Serval](https://github.com/linusboyle/Serval)，请将它置于或链接于本项目的根目录下。
+另外，我们需要经过修改的[Serval](https://github.com/linusboyle/Serval)，请将其Clone后，在其顶层目录执行下列命令安装Serval：
+
+```
+raco pkg install
+```
 
 安装完成后，可通过如下指令运行验证过程
 ```bash
