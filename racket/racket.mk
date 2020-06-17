@@ -1,5 +1,5 @@
 LLVM_ROSETTE            := $(O)/racket/llvm-rosette/llvm-rosette
-SERVAL_LLVM             := racket serval/serval/bin/serval-llvm.rkt
+SERVAL_LLVM             := racket verif/serval-llvm.rkt
 PYTHON_ROSETTE          := racket/python-rosette/python-rosette.py
 EBPF_ROSETTE            := racket/ebpf-rosette/ebpf-rosette.py
 
