@@ -62,7 +62,7 @@ $ make qemu
 为了验证本项目，在前面一节内容的基础上，我们需要
 
 * Racket >= 7.4
-* Clang/LLVM >= 8
+* Clang/LLVM == 8
 
 另外，我们需要经过修改的[Serval](https://github.com/linusboyle/Serval)，请将其Clone后，在其顶层目录执行下列命令安装Serval：
 
