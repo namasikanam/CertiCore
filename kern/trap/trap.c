@@ -1,54 +1,43 @@
-#include <assert.h>
-#include <clock.h>
-#include <console.h>
 #include <defs.h>
-#include <kdebug.h>
-#include <memlayout.h>
 #include <mmu.h>
+#include <memlayout.h>
+#include <clock.h>
+#include <trap.h>
 #include <riscv.h>
 #include <stdio.h>
-#include <trap.h>
+#include <assert.h>
+#include <console.h>
+#include <vmm.h>
+#include <swap.h>
+#include <kdebug.h>
+#include <unistd.h>
+#include <syscall.h>
+#include <error.h>
+#include <sched.h>
+#include <sync.h>
+#include <sbi.h>
 
 #define TICK_NUM 100
 
 static void print_ticks() {
-    cprintf("%d ticks\n", TICK_NUM);
+    cprintf("%d ticks\n",TICK_NUM);
 #ifdef DEBUG_GRADE
     cprintf("End of Test.\n");
     panic("EOT: kernel seems ok.");
 #endif
 }
 
-/* idt_init - initialize IDT to each of the entry points in kern/trap/vectors.S
- */
-void idt_init(void) {
-    /* LAB1 YOUR CODE : STEP 2 */
-    /* (1) Where are the entry addrs of each Interrupt Service Routine (ISR)?
-     *     All ISR's entry addrs are stored in __vectors. where is uintptr_t
-     * __vectors[] ?
-     *     __vectors[] is in kern/trap/vector.S which is produced by
-     * tools/vector.c
-     *     (try "make" command in lab1, then you will find vector.S in kern/trap
-     * DIR)
-     *     You can use  "extern uintptr_t __vectors[];" to define this extern
-     * variable which will be used later.
-     * (2) Now you should setup the entries of ISR in Interrupt Description
-     * Table (IDT).
-     *     Can you see idt[256] in this file? Yes, it's IDT! you can use SETGATE
-     * macro to setup each item of IDT
-     * (3) After setup the contents of IDT, you will let CPU know where is the
-     * IDT by using 'lidt' instruction.
-     *     You don't know the meaning of this instruction? just google it! and
-     * check the libs/x86.h to know more.
-     *     Notice: the argument of lidt is idt_pd. try to find it!
-     */
-
+/* idt_init - initialize IDT to each of the entry points in kern/trap/vectors.S */
+void
+idt_init(void) {
     extern void __alltraps(void);
-    /* Set sup0 scratch register to 0, indicating to exception vector
-       that we are presently executing in the kernel */
+    /* Set sscratch register to 0, indicating to exception vector that we are
+     * presently executing in the kernel */
     write_csr(sscratch, 0);
     /* Set the exception vector address */
     write_csr(stvec, &__alltraps);
+    /* Allow kernel to access user memory */
+    set_csr(sstatus, SSTATUS_SUM);
 }
 
 /* trap_in_kernel - test if trap happened in kernel */
@@ -56,16 +45,17 @@ bool trap_in_kernel(struct trapframe *tf) {
     return (tf->status & SSTATUS_SPP) != 0;
 }
 
-void print_trapframe(struct trapframe *tf) {
+void
+print_trapframe(struct trapframe *tf) {
     cprintf("trapframe at %p\n", tf);
     print_regs(&tf->gpr);
     cprintf("  status   0x%08x\n", tf->status);
     cprintf("  epc      0x%08x\n", tf->epc);
-    cprintf("  badvaddr 0x%08x\n", tf->badvaddr);
+    cprintf("  tval 0x%08x\n", tf->tval);
     cprintf("  cause    0x%08x\n", tf->cause);
 }
 
-void print_regs(struct pushregs *gpr) {
+void print_regs(struct pushregs* gpr) {
     cprintf("  zero     0x%08x\n", gpr->zero);
     cprintf("  ra       0x%08x\n", gpr->ra);
     cprintf("  sp       0x%08x\n", gpr->sp);
@@ -100,6 +90,37 @@ void print_regs(struct pushregs *gpr) {
     cprintf("  t6       0x%08x\n", gpr->t6);
 }
 
+static inline void print_pgfault(struct trapframe *tf) {
+    cprintf("page falut at 0x%08x: %c/%c\n", tf->tval,
+            trap_in_kernel(tf) ? 'K' : 'U',
+            tf->cause == CAUSE_STORE_PAGE_FAULT ? 'W' : 'R');
+}
+
+static int
+pgfault_handler(struct trapframe *tf) {
+    extern struct mm_struct *check_mm_struct;
+    if(check_mm_struct !=NULL) { //used for test check_swap
+            print_pgfault(tf);
+        }
+    struct mm_struct *mm;
+    if (check_mm_struct != NULL) {
+        assert(current == idleproc);
+        mm = check_mm_struct;
+    }
+    else {
+        if (current == NULL) {
+            print_trapframe(tf);
+            print_pgfault(tf);
+            panic("unhandled page fault.\n");
+        }
+        mm = current->mm;
+    }
+    return do_pgfault(mm, tf->cause, tf->tval);
+}
+
+static volatile int in_swap_tick_event = 0;
+extern struct mm_struct *check_mm_struct;
+
 void interrupt_handler(struct trapframe *tf) {
     intptr_t cause = (tf->cause << 1) >> 1;
     switch (cause) {
@@ -116,18 +137,18 @@ void interrupt_handler(struct trapframe *tf) {
             cprintf("Machine software interrupt\n");
             break;
         case IRQ_U_TIMER:
-            cprintf("User Timer interrupt\n");
+            cprintf("User software interrupt\n");
             break;
         case IRQ_S_TIMER:
             // "All bits besides SSIP and USIP in the sip register are
             // read-only." -- privileged spec1.9.1, 4.1.4, p59
             // In fact, Call sbi_set_timer will clear STIP, or you can clear it
             // directly.
-            // cprintf("Supervisor timer interrupt\n");
             // clear_csr(sip, SIP_STIP);
             clock_set_next_event();
-            if (++ticks % TICK_NUM == 0) {
-                print_ticks();
+            if (++ticks % TICK_NUM == 0 && current) {
+                // print_ticks();
+                current->need_resched = 1;
             }
             break;
         case IRQ_H_TIMER:
@@ -155,30 +176,76 @@ void interrupt_handler(struct trapframe *tf) {
 }
 
 void exception_handler(struct trapframe *tf) {
+    int ret;
     switch (tf->cause) {
         case CAUSE_MISALIGNED_FETCH:
+            cprintf("Instruction address misaligned\n");
             break;
-        case CAUSE_FAULT_FETCH:
+        case CAUSE_FETCH_ACCESS:
+            cprintf("Instruction access fault\n");
             break;
         case CAUSE_ILLEGAL_INSTRUCTION:
+            cprintf("Illegal instruction\n");
             break;
         case CAUSE_BREAKPOINT:
+            cprintf("Breakpoint\n");
+            if(tf->gpr.a7 == 10){
+                tf->epc += 4;
+                syscall(); 
+            }
             break;
         case CAUSE_MISALIGNED_LOAD:
+            cprintf("Load address misaligned\n");
             break;
-        case CAUSE_FAULT_LOAD:
+        case CAUSE_LOAD_ACCESS:
+            cprintf("Load access fault\n");
+            if ((ret = pgfault_handler(tf)) != 0) {
+                print_trapframe(tf);
+                panic("handle pgfault failed. %e\n", ret);
+            }
             break;
         case CAUSE_MISALIGNED_STORE:
+            panic("AMO address misaligned\n");
             break;
-        case CAUSE_FAULT_STORE:
+        case CAUSE_STORE_ACCESS:
+            cprintf("Store/AMO access fault\n");
+            if ((ret = pgfault_handler(tf)) != 0) {
+                print_trapframe(tf);
+                panic("handle pgfault failed. %e\n", ret);
+            }
             break;
         case CAUSE_USER_ECALL:
+            //cprintf("Environment call from U-mode\n");
+            tf->epc += 4;
+            syscall();
             break;
         case CAUSE_SUPERVISOR_ECALL:
+            cprintf("Environment call from S-mode\n");
+            tf->epc += 4;
+            syscall();
             break;
         case CAUSE_HYPERVISOR_ECALL:
+            cprintf("Environment call from H-mode\n");
             break;
         case CAUSE_MACHINE_ECALL:
+            cprintf("Environment call from M-mode\n");
+            break;
+        case CAUSE_FETCH_PAGE_FAULT:
+            cprintf("Instruction page fault\n");
+            break;
+        case CAUSE_LOAD_PAGE_FAULT:
+            cprintf("Load page fault\n");
+            if ((ret = pgfault_handler(tf)) != 0) {
+                print_trapframe(tf);
+                panic("handle pgfault failed. %e\n", ret);
+            }
+            break;
+        case CAUSE_STORE_PAGE_FAULT:
+            cprintf("Store/AMO page fault\n");
+            if ((ret = pgfault_handler(tf)) != 0) {
+                print_trapframe(tf);
+                panic("handle pgfault failed. %e\n", ret);
+            }
             break;
         default:
             print_trapframe(tf);
@@ -186,7 +253,7 @@ void exception_handler(struct trapframe *tf) {
     }
 }
 
-static inline void trap_dispatch(struct trapframe *tf) {
+static inline void trap_dispatch(struct trapframe* tf) {
     if ((intptr_t)tf->cause < 0) {
         // interrupts
         interrupt_handler(tf);
@@ -197,12 +264,34 @@ static inline void trap_dispatch(struct trapframe *tf) {
 }
 
 /* *
- * trap - handles or dispatches an exception/interrupt. if and when trap()
- * returns,
+ * trap - handles or dispatches an exception/interrupt. if and when trap() returns,
  * the code in kern/trap/trapentry.S restores the old CPU state saved in the
  * trapframe and then uses the iret instruction to return from the exception.
  * */
-void trap(struct trapframe *tf) {
+void
+trap(struct trapframe *tf) {
     // dispatch based on what type of trap occurred
-    trap_dispatch(tf);
+//    cputs("some trap");
+    if (current == NULL) {
+        trap_dispatch(tf);
+    } else {
+        struct trapframe *otf = current->tf;
+        current->tf = tf;
+
+        bool in_kernel = trap_in_kernel(tf);
+
+        trap_dispatch(tf);
+
+        current->tf = otf;
+        if (!in_kernel) {
+            if (current->flags & PF_EXITING) {
+                do_exit(-E_KILLED);
+            }
+            if (current->need_resched) {
+                schedule();
+            }
+        }
+    }
 }
+
+

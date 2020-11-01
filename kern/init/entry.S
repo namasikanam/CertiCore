@@ -25,13 +25,22 @@ kern_entry:
     #nop # 可能映射的位置有些bug。。插入一个nop
     
     # 我们在虚拟内存空间中：随意将 sp 设置为虚拟地址！
-    lui sp, %hi(bootstack + KSTACKSIZE)
+    lui sp, %hi(bootstacktop)
 
     # 我们在虚拟内存空间中：随意跳转到虚拟地址！
     # 跳转到 kern_init
     lui t0, %hi(kern_init)
     addi t0, t0, %lo(kern_init)
     jr t0
+
+.section .data
+    # .align 2^12
+    .align PGSHIFT
+    .global bootstack
+bootstack:
+    .space KSTACKSIZE
+    .global bootstacktop
+bootstacktop:
 
 .section .data
     # 由于我们要把这个页表放到一个页里面，因此必须 12 位对齐

@@ -74,6 +74,8 @@ TARGETS	:=
 
 include racket/racket.mk
 
+USER_PREFIX	:= __user_
+
 listf_cc = $(call listf,$(1),$(CTYPE))
 listf_ll = $(call listf, $(1), $(LTYPE))
 
@@ -86,6 +88,10 @@ mapfile = $(call cgtype,$(call toobj,$(1)),o,map)
 mapracket = $(call cgtype,$(call toobj,$(1)),o,map.rkt)
 asmracket = $(call cgtype,$(call toobj,$(1)),o,asm.rkt)
 globalfile = $(call cgtype,$(call toobj,$(1)),o,global.rkt)
+
+outfile = $(call cgtype,$(call toobj,$(1)),o,out)
+filename = $(basename $(notdir $(1)))
+ubinfile = $(call outfile,$(addprefix $(USER_PREFIX),$(call filename,$(1))))
 
 # for match pattern
 match = $(shell echo $(2) | $(AWK) '{for(i=1;i<=NF;i++){if(match("$(1)","^"$$(i)"$$")){exit 1;}}}'; echo $$?)
@@ -103,20 +109,61 @@ LIBDIR	+= libs
 $(call add_files_cc,$(call listf_cc,$(LIBDIR)),libs,)
 
 # -------------------------------------------------------------------
+# user programs
+
+UINCLUDE	+= user/include/ \
+			   user/libs/
+
+USRCDIR		+= user
+
+ULIBDIR		+= user/libs
+
+UCFLAGS		+= $(addprefix -I,$(UINCLUDE))
+USER_BINS	:=
+
+$(call add_files_cc,$(call listf_cc,$(ULIBDIR)),ulibs,$(UCFLAGS))
+$(call add_files_cc,$(call listf_cc,$(USRCDIR)),uprog,$(UCFLAGS))
+
+UOBJS	:= $(call read_packet,ulibs libs)
+
+define uprog_ld
+__user_bin__ := $$(call ubinfile,$(1))
+USER_BINS += $$(__user_bin__)
+$$(__user_bin__): tools/user.ld
+$$(__user_bin__): $$(UOBJS)
+$$(__user_bin__): $(1) | $$$$(dir $$$$@)
+	$(V)$(LD) $(LDFLAGS) -T tools/user.ld -o $$@ $$(UOBJS) $(1)
+	@$(OBJDUMP) -S $$@ > $$(call cgtype,$$<,o,asm)
+	@$(OBJDUMP) -t $$@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$$$/d' > $$(call cgtype,$$<,o,sym)
+endef
+
+$(foreach p,$(call read_packet,uprog),$(eval $(call uprog_ld,$(p))))
+
+# -------------------------------------------------------------------
 # kernel
 
 KINCLUDE	+= kern/debug/ \
 			   kern/driver/ \
 			   kern/trap/ \
 			   kern/mm/ \
+			   kern/libs/ \
 			   kern/sync/ \
+			   kern/fs/    \
+			   kern/process \
+			   kern/schedule \
+			   kern/syscall
 
 KSRCDIR		+= kern/init \
 			   kern/libs \
 			   kern/debug \
 			   kern/driver \
 			   kern/trap \
-			   kern/mm
+			   kern/mm \
+			   kern/sync \
+			   kern/fs    \
+			   kern/process \
+			   kern/schedule \
+			   kern/syscall
 
 KCFLAGS		+= $(addprefix -I,$(KINCLUDE))
 LLVM_IFLAGS += $(addprefix -I,$(KINCLUDE))
@@ -130,9 +177,9 @@ KOBJS	= $(call read_packet,kernel libs)
 
 $(kernel): tools/kernel.ld
 
-$(kernel): $(KOBJS)
+$(kernel): $(KOBJS) $(USER_BINS)
 	@echo + ld $@
-	$(V)$(LD) $(LDFLAGS) -T tools/kernel.ld -o $@ $(KOBJS)
+	$(V)$(LD) $(LDFLAGS) -T tools/kernel.ld -o $@ $(KOBJS) --format=binary $(USER_BINS) --format=default
 
 $(call create_target,kernel)
 

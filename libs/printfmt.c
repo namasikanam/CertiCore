@@ -13,14 +13,18 @@
  * The integer may be positive or negative,
  * so that -E_NO_MEM and E_NO_MEM are equivalent.
  * */
+
 static const char * const error_string[MAXERROR + 1] = {
-    [0]                     = NULL,
-    [E_UNSPECIFIED]         = "unspecified error",
-    [E_BAD_PROC]            = "bad process",
-    [E_INVAL]               = "invalid parameter",
-    [E_NO_MEM]              = "out of memory",
-    [E_NO_FREE_PROC]        = "out of processes",
-    [E_FAULT]               = "segmentation fault",
+    [0]                     NULL,
+    [E_UNSPECIFIED]         "unspecified error",
+    [E_BAD_PROC]            "bad process",
+    [E_INVAL]               "invalid parameter",
+    [E_NO_MEM]              "out of memory",
+    [E_NO_FREE_PROC]        "out of processes",
+    [E_FAULT]               "segmentation fault",
+    [E_INVAL_ELF]           "invalid elf file",
+    [E_KILLED]              "process is killed",
+    [E_PANIC]               "panic failure",
 };
 
 /* *
@@ -48,29 +52,49 @@ printnum(void (*putch)(int, void*), void *putdat,
     }
     // then print this (the least significant) digit
     putch("0123456789abcdef"[mod], putdat);
+
+    // Crashes if num >= base. No idea what going on here
+    // Here is a quick fix
+    // update: Stack grows downward and destory the SBI
+    // sbi_console_putchar("0123456789abcdef"[mod]);
+    // (*(int *)putdat)++;
 }
 
 /* *
  * getuint - get an unsigned int of various possible sizes from a varargs list
- * @num:        where the answer stores
  * @ap:         a varargs list pointer
  * @lflag:      determines the size of the vararg that @ap points to
  * */
-#define getuint(num, ap, lflag)                           \
-    if (lflag >= 2) num = va_arg(ap, unsigned long long); \
-    else if (lflag) num = va_arg(ap, unsigned long);      \
-    else num = va_arg(ap, unsigned int);
+static unsigned long long
+getuint(va_list *ap, int lflag) {
+    if (lflag >= 2) {
+        return va_arg(*ap, unsigned long long);
+    }
+    else if (lflag) {
+        return va_arg(*ap, unsigned long);
+    }
+    else {
+        return va_arg(*ap, unsigned int);
+    }
+}
 
 /* *
  * getint - same as getuint but signed, we can't use getuint because of sign extension
- * @num:        where the answer stores
  * @ap:         a varargs list pointer
  * @lflag:      determines the size of the vararg that @ap points to
  * */
-#define getint(num, ap, lflag)                          \
-    if (lflag >= 2) num = va_arg(ap, long long);        \
-    else if (lflag) num = va_arg(ap, long);             \
-    else num = va_arg(ap, int);
+static long long
+getint(va_list *ap, int lflag) {
+    if (lflag >= 2) {
+        return va_arg(*ap, long long);
+    }
+    else if (lflag) {
+        return va_arg(*ap, long);
+    }
+    else {
+        return va_arg(*ap, int);
+    }
+}
 
 /* *
  * printfmt - format a string and print it by using putch
@@ -209,7 +233,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap) 
 
         // (signed) decimal
         case 'd':
-            getint(num, ap, lflag);
+            num = getint(&ap, lflag);
             if ((long long)num < 0) {
                 putch('-', putdat);
                 num = -(long long)num;
@@ -219,13 +243,13 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap) 
 
         // unsigned decimal
         case 'u':
-            getuint(num, ap, lflag)
+            num = getuint(&ap, lflag);
             base = 10;
             goto number;
 
         // (unsigned) octal
         case 'o':
-            getuint(num, ap, lflag);
+            num = getuint(&ap, lflag);
             base = 8;
             goto number;
 
@@ -239,7 +263,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap) 
 
         // (unsigned) hexadecimal
         case 'x':
-            getuint(num, ap, lflag);
+            num = getuint(&ap, lflag);
             base = 16;
         number:
             printnum(putch, putdat, num, base, width, padc);

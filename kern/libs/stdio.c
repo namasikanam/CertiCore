@@ -38,16 +38,12 @@ vcprintf(const char *fmt, va_list ap) {
  * */
 int
 cprintf(const char *fmt, ...) {
-#ifndef IS_VERIF
     va_list ap;
     int cnt;
     va_start(ap, fmt);
     cnt = vcprintf(fmt, ap);
     va_end(ap);
     return cnt;
-#else
-    return 0;
-#endif
 }
 
 /* cputchar - writes a single character to stdout */
@@ -62,7 +58,6 @@ cputchar(int c) {
  * */
 int
 cputs(const char *str) {
-#ifndef IS_VERIF
     int cnt = 0;
     char c;
     while ((c = *str ++) != '\0') {
@@ -70,9 +65,6 @@ cputs(const char *str) {
     }
     cputch('\n', &cnt);
     return cnt;
-#else
-    return 0;
-#endif
 }
 
 /* getchar - reads a single non-zero character from stdin */
