@@ -6,7 +6,6 @@
 #include <trap.h>
 #include <memlayout.h>
 
-
 // process's state in his life cycle
 enum proc_state {
     PROC_UNINIT = 0,  // uninitialized
@@ -34,7 +33,6 @@ struct context {
 
 #define PROC_NAME_LEN               15
 #define MAX_PROCESS                 4096
-#define MAX_PID                     (MAX_PROCESS * 2)
 
 extern list_entry_t proc_list;
 
@@ -55,7 +53,6 @@ struct proc_struct {
     list_entry_t hash_link;                     // Process hash list
     int exit_code;                              // exit code (be sent to parent proc)
     uint32_t wait_state;                        // waiting state
-    struct proc_struct *cptr, *yptr, *optr;     // relations between processes
 };
 
 #define PF_EXITING                  0x00000001      // getting shutdown
