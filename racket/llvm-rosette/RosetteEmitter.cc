@@ -479,7 +479,7 @@ void RosetteEmitter::emitGlobals(llvm::Module &M)
 
         GV.getDebugInfo(DGVEs);
         if (DGVEs.size() == 1)
-            DT = DGVEs[0]->getVariable()->getType().resolve();
+            DT = DGVEs[0]->getVariable()->getType();
 
         OS << "\n  (cons '" << name << " (lambda () ";
         emitGlobalType(DL, GV.getValueType(), DT);
@@ -516,7 +516,7 @@ static llvm::DIType *stripDITypedef(llvm::DIType *DT)
     if (!DT || DT->getTag() != llvm::dwarf::DW_TAG_typedef)
         return DT;
     assert(llvm::isa<llvm::DIDerivedType>(DT));
-    DT = llvm::cast<llvm::DIDerivedType>(DT)->getBaseType().resolve();
+    DT = llvm::cast<llvm::DIDerivedType>(DT)->getBaseType();
     return stripDITypedef(DT);
 }
 
@@ -547,7 +547,7 @@ void RosetteEmitter::emitGlobalType(llvm::raw_ostream &OS, const llvm::DataLayou
             assert(llvm::isa<llvm::DICompositeType>(DT));
             ++idx;
             if (idx == llvm::cast<llvm::DICompositeType>(DT)->getElements().size()) {
-                DT = llvm::cast<llvm::DICompositeType>(DT)->getBaseType().resolve();
+                DT = llvm::cast<llvm::DICompositeType>(DT)->getBaseType();
                 idx = 0;
             }
         }
@@ -579,7 +579,7 @@ void RosetteEmitter::emitGlobalType(llvm::raw_ostream &OS, const llvm::DataLayou
             if (DT) {
                 assert(DT->getTag() == llvm::dwarf::DW_TAG_member);
                 assert(llvm::isa<llvm::DIDerivedType>(DT));
-                DT = llvm::cast<llvm::DIDerivedType>(DT)->getBaseType().resolve();
+                DT = llvm::cast<llvm::DIDerivedType>(DT)->getBaseType();
             }
             emitGlobalType(OS, DL, ET, DT);
             OS << ")";

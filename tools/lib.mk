@@ -36,7 +36,7 @@ LLVM_PREFIX     := "$(shell $(LLVM_CONFIG) --bindir)/"
 endif
 
 # clang doesn't support riscv yet; use x86_64 as a placeholder.
-LLVM_CC         := $(LLVM_PREFIX)clang -target x86_64-pc-linux-gnu
+LLVM_CC         := $(LLVM_PREFIX)clang -target riscv64
 LLVM_HOST_CC    := $(LLVM_PREFIX)clang
 LLVM_LINK       := $(LLVM_PREFIX)llvm-link
 LLVM_OBJDUMP    := $(LLVM_PREFIX)llvm-objdump

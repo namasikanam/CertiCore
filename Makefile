@@ -33,7 +33,7 @@ BASE_CFLAGS     += -fno-jump-tables
 BASE_CFLAGS     += -mstrict-align
 BASE_CFLAGS     += -g -O$(OLEVEL)
 BASE_CFLAGS     += -Wall -Wno-unused
-BASE_CFLAGS     += -Werror
+# BASE_CFLAGS     += -Werror
 
 CFLAGS     := $(BASE_CFLAGS) $(CONFIG_CFLAGS)
 CFLAGS     += -mcmodel=medany

@@ -189,8 +189,6 @@
 
 #define PTE_TABLE(PTE) (((PTE) & (PTE_V | PTE_R | PTE_W | PTE_X)) == PTE_V)
 
-#ifdef __riscv
-
 #if __riscv_xlen == 64
 # define MSTATUS_SD MSTATUS64_SD
 # define SSTATUS_SD SSTATUS64_SD
@@ -204,8 +202,6 @@
 #define RISCV_PGSIZE (1 << RISCV_PGSHIFT)
 
 #ifndef __ASSEMBLER__
-
-#ifdef __GNUC__
 
 #define read_csr(reg) ({ unsigned long __tmp; \
   asm volatile ("csrr %0, " #reg : "=r"(__tmp)); \
@@ -230,8 +226,6 @@
 #define rdcycle() read_csr(cycle)
 #define rdinstret() read_csr(instret)
 
-#endif
-
 #define do_div(n, base)                              \
     ({                                               \
         int __res;                                   \
@@ -246,8 +240,6 @@ static inline void
 lcr3(unsigned long cr3) {
     write_csr(satp, 0x8000000000000000 | (cr3 >> RISCV_PGSHIFT));
 }
-
-#endif
 
 #endif
 
